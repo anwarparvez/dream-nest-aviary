@@ -6,13 +6,14 @@ import Expense from '@/lib/db/models/Expense';
 import Pair from '@/lib/db/models/Pair';
 import Project from '@/lib/db/models/Project';
 import BreedingRecord from '@/lib/db/models/BreedingRecord';
-import { format, subMonths, eachMonthOfInterval, startOfMonth, endOfMonth } from 'date-fns';
+import { format } from 'date-fns';
 
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'admin') {
+    // Check if session exists and user has admin role
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch breeding records
     if (projectId && projectId !== 'all') {
-      const pairIds = pairs.map(p => p._id);
+      const pairIds = pairs.map(p => (p as any)._id);
       breedingFilter.pairId = { $in: pairIds };
     }
     const breedingRecords = await BreedingRecord.find(breedingFilter).lean();
@@ -131,7 +132,7 @@ export async function GET(request: NextRequest) {
     const totalEggs = breedingRecords.reduce((sum, r) => sum + r.eggCount, 0);
     const totalChicks = breedingRecords.reduce((sum, r) => sum + (r.chickCount || 0), 0);
     const hatchRate = totalEggs > 0 ? (totalChicks / totalEggs) * 100 : 0;
-    const survivalRate = totalChicks > 0 ? 100 : 0; // You can adjust this based on your data
+    const survivalRate = totalChicks > 0 ? 100 : 0;
 
     // Group breeding by month
     const breedingByMonth: Record<string, { eggs: number; chicks: number }> = {};
@@ -154,12 +155,12 @@ export async function GET(request: NextRequest) {
       return dateA.getTime() - dateB.getTime();
     });
 
-    // Find most productive pair
+    // Find most productive pair - Fixed version
     const pairProductivity: Record<string, { pairNumber: string; chicks: number }> = {};
-    breedingRecords.forEach(record => {
+    breedingRecords.forEach((record: any) => {
       const pairId = record.pairId.toString();
       if (!pairProductivity[pairId]) {
-        const pair = pairs.find(p => p._id.toString() === pairId);
+        const pair = pairs.find((p: any) => p._id.toString() === pairId);
         pairProductivity[pairId] = {
           pairNumber: pair?.pairNumber || 'Unknown',
           chicks: 0,

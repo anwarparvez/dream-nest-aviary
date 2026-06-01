@@ -54,7 +54,7 @@ import {
 import { toast } from 'sonner';
 
 export default function SettingsPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(false);
@@ -90,21 +90,26 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    if (mounted && session?.user) {
+    // Safely check session and user
+    if (mounted && status === 'authenticated' && session?.user) {
       const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'system' || 'light';
+      const userRole = (session.user as any)?.role || 'user';
+      
       setUserSettings({
         name: session.user.name || '',
         email: session.user.email || '',
-        role: session.user.role || 'user',
+        role: userRole,
         theme: savedTheme,
       });
+      
+      // Safe access with optional chaining
       setFarmSettings(prev => ({
         ...prev,
-        owner: session.user.name || '',
-        email: session.user.email || '',
+        owner: session.user?.name || '',
+        email: session.user?.email || '',
       }));
     }
-  }, [mounted, session]);
+  }, [mounted, session, status]);
 
   const saveUserSettings = async () => {
     if (!userSettings.name || !userSettings.email) {
@@ -202,13 +207,32 @@ export default function SettingsPage() {
     });
   };
 
-  if (!mounted) {
+  // Show loading state while session is loading
+  if (!mounted || status === 'loading') {
     return (
       <div className="container mx-auto py-8 px-4 max-w-5xl">
-        <div className="h-8 w-48 bg-gray-200 rounded mb-4 animate-pulse" />
-        <div className="h-4 w-96 bg-gray-200 rounded mb-8 animate-pulse" />
-        <div className="h-10 bg-gray-200 rounded mb-6 animate-pulse" />
-        <div className="h-64 bg-gray-200 rounded animate-pulse" />
+        <div className="animate-pulse">
+          <div className="h-8 w-48 bg-gray-200 rounded mb-4" />
+          <div className="h-4 w-96 bg-gray-200 rounded mb-8" />
+          <div className="h-10 bg-gray-200 rounded mb-6" />
+          <div className="h-64 bg-gray-200 rounded" />
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect or show error if not authenticated
+  if (status === 'unauthenticated') {
+    return (
+      <div className="container mx-auto py-8 px-4 max-w-5xl">
+        <Card>
+          <CardContent className="text-center py-12">
+            <p className="text-gray-600">Please log in to access settings.</p>
+            <Button onClick={() => window.location.href = '/login'} className="mt-4">
+              Go to Login
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -294,7 +318,7 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent>
                 <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
-                  <DialogTrigger asChild>
+                  <DialogTrigger>
                     <Button variant="outline">
                       <Lock className="mr-2 h-4 w-4" />
                       Change Password
@@ -420,7 +444,11 @@ export default function SettingsPage() {
                   <Label>Currency</Label>
                   <Select
                     value={farmSettings.currency}
-                    onValueChange={(value) => setFarmSettings({ ...farmSettings, currency: value })}
+                    onValueChange={(value) => {
+                      if (value) {
+                        setFarmSettings({ ...farmSettings, currency: value });
+                      }
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue />

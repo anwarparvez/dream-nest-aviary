@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     // Filter by visibility (only admin can see private images)
     if (visibility) {
       query.visibility = visibility;
-    } else if (!session || session.user.role !== 'admin') {
+    } else if (!session || !session.user || (session.user as any).role !== 'admin') {
       // Public visitors only see public images
       query.visibility = 'public';
     }
@@ -61,25 +61,31 @@ export async function GET(request: NextRequest) {
       .sort({ createdAt: -1 })
       .lean();
     
-    const formattedImages = images.map(image => ({
-      ...image,
-      _id: image._id.toString(),
+    const formattedImages = images.map((image: any) => ({
+      _id: image._id?.toString() || '',
+      title: image.title || '',
+      species: image.species || '',
+      breed: image.breed || '',
+      tags: image.tags || [],
+      description: image.description || '',
+      imageUrl: image.imageUrl || '',
+      visibility: image.visibility || 'public',
       projectId: image.projectId ? {
-        _id: image.projectId._id.toString(),
-        name: image.projectId.name,
-        type: image.projectId.type,
+        _id: image.projectId._id?.toString() || '',
+        name: image.projectId.name || '',
+        type: image.projectId.type || '',
       } : null,
       pairId: image.pairId ? {
-        _id: image.pairId._id.toString(),
-        pairNumber: image.pairId.pairNumber,
-        maleName: image.pairId.maleName,
-        femaleName: image.pairId.femaleName,
+        _id: image.pairId._id?.toString() || '',
+        pairNumber: image.pairId.pairNumber || '',
+        maleName: image.pairId.maleName || '',
+        femaleName: image.pairId.femaleName || '',
       } : null,
-      uploadedBy: {
-        _id: image.uploadedBy._id.toString(),
-        name: image.uploadedBy.name,
-        email: image.uploadedBy.email,
-      },
+      uploadedBy: image.uploadedBy ? {
+        _id: image.uploadedBy._id?.toString() || '',
+        name: image.uploadedBy.name || '',
+        email: image.uploadedBy.email || '',
+      } : null,
       createdAt: image.createdAt?.toISOString(),
     }));
     
@@ -98,7 +104,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -143,7 +149,7 @@ export async function POST(request: NextRequest) {
       tags: body.tags || [],
       description: body.description || '',
       imageUrl: body.imageUrl,
-      uploadedBy: session.user.id,
+      uploadedBy: (session.user as any).id,
       projectId: body.projectId || null,
       pairId: body.pairId || null,
       visibility: body.visibility || 'public',
@@ -153,8 +159,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        ...image.toObject(),
         _id: image._id.toString(),
+        title: image.title,
+        species: image.species,
+        breed: image.breed,
+        tags: image.tags,
+        description: image.description,
+        imageUrl: image.imageUrl,
+        visibility: image.visibility,
+        createdAt: image.createdAt.toISOString(),
       }
     }, { status: 201 });
   } catch (error) {

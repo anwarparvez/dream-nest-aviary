@@ -22,7 +22,8 @@ const imageSchema = z.object({
 
 export async function uploadBirdImage(formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 
@@ -53,7 +54,7 @@ export async function uploadBirdImage(formData: FormData) {
     const image = await BirdImage.create({
       ...result.data,
       tags,
-      uploadedBy: session.user.id,
+      uploadedBy: (session.user as any).id,
       createdAt: new Date(),
     })
 
@@ -75,7 +76,8 @@ export async function uploadBirdImage(formData: FormData) {
 
 export async function deleteImage(formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 
@@ -96,7 +98,8 @@ export async function deleteImage(formData: FormData) {
 
 export async function updateImageVisibility(formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 

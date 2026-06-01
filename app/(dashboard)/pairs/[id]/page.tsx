@@ -39,19 +39,15 @@ import {
   Trash2,
   Plus,
   Bird,
-  Calendar,
   DollarSign,
   Egg,
   Baby,
-  Heart,
-  TrendingUp,
   Camera,
   FileText,
   Activity,
   Loader2,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import Link from 'next/link';
 import { toast } from 'sonner';
 
 type SpeciesType = 'Pigeon' | 'Chicken';
@@ -860,7 +856,11 @@ export default function PairDetailPage() {
                 <Label>Species *</Label>
                 <Select
                   value={editFormData.species}
-                  onValueChange={(value: SpeciesType) => setEditFormData({ ...editFormData, species: value })}
+                  onValueChange={(value) => {
+                    if (value === 'Pigeon' || value === 'Chicken') {
+                      setEditFormData({ ...editFormData, species: value });
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -901,7 +901,11 @@ export default function PairDetailPage() {
                 <Label>Status</Label>
                 <Select
                   value={editFormData.status}
-                  onValueChange={(value: PairStatus) => setEditFormData({ ...editFormData, status: value })}
+                  onValueChange={(value) => {
+                    if (value === 'active' || value === 'breeding' || value === 'sold') {
+                      setEditFormData({ ...editFormData, status: value });
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />

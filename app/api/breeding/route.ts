@@ -4,6 +4,26 @@ import { authOptions } from '@/lib/auth/auth.config';
 import { connectDB } from '@/lib/db/mongodb';
 import BreedingRecord from '@/lib/db/models/BreedingRecord';
 import Pair from '@/lib/db/models/Pair';
+import mongoose from 'mongoose';
+
+interface BreedingRecordDoc {
+  _id: mongoose.Types.ObjectId;
+  pairId: {
+    _id: mongoose.Types.ObjectId;
+    pairNumber: string;
+    maleName: string;
+    femaleName: string;
+    species: string;
+  };
+  eggDate: Date;
+  eggCount: number;
+  hatchDate?: Date;
+  chickCount?: number;
+  chickStatus?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 // GET /api/breeding - Get breeding records (optionally filtered by pairId)
 export async function GET(request: NextRequest) {
@@ -27,10 +47,9 @@ export async function GET(request: NextRequest) {
     const records = await BreedingRecord.find(query)
       .populate('pairId', 'pairNumber maleName femaleName species')
       .sort({ eggDate: -1 })
-      .lean();
+      .lean() as unknown as BreedingRecordDoc[];
     
-    const formattedRecords = records.map(record => ({
-      ...record,
+    const formattedRecords = records.map((record: BreedingRecordDoc) => ({
       _id: record._id.toString(),
       pairId: record.pairId ? {
         _id: record.pairId._id.toString(),
@@ -40,7 +59,11 @@ export async function GET(request: NextRequest) {
         species: record.pairId.species,
       } : null,
       eggDate: record.eggDate?.toISOString(),
+      eggCount: record.eggCount,
       hatchDate: record.hatchDate?.toISOString(),
+      chickCount: record.chickCount,
+      chickStatus: record.chickStatus,
+      notes: record.notes,
       createdAt: record.createdAt?.toISOString(),
       updatedAt: record.updatedAt?.toISOString(),
     }));
@@ -60,7 +83,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -106,8 +129,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        ...record.toObject(),
         _id: record._id.toString(),
+        pairId: record.pairId.toString(),
+        eggDate: record.eggDate.toISOString(),
+        eggCount: record.eggCount,
+        hatchDate: record.hatchDate?.toISOString(),
+        chickCount: record.chickCount,
+        chickStatus: record.chickStatus,
+        notes: record.notes,
+        createdAt: record.createdAt.toISOString(),
+        updatedAt: record.updatedAt.toISOString(),
       }
     }, { status: 201 });
   } catch (error) {

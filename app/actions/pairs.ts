@@ -29,7 +29,8 @@ const pairSchema = z.object({
 
 export async function createPair(formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 
@@ -79,7 +80,8 @@ export async function createPair(formData: FormData) {
 
 export async function updatePair(id: string, formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 
@@ -132,7 +134,8 @@ export async function updatePair(id: string, formData: FormData) {
 
 export async function deletePair(formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 
@@ -157,7 +160,8 @@ export async function deletePair(formData: FormData) {
 
 export async function updatePairStatus(formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 

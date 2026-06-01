@@ -24,24 +24,24 @@ export async function GET(request: NextRequest) {
       query = { projectId };
     }
 
-    // Populate projectId to get project details
     const expenses = await Expense.find(query)
       .populate('projectId', 'name type')
       .sort({ date: -1 })
       .lean();
     
-    // Format the response with project details
-    const formattedExpenses = expenses.map(expense => ({
-      ...expense,
-      _id: expense._id.toString(),
+    const formattedExpenses = expenses.map((expense: any) => ({
+      _id: expense._id?.toString() || '',
       projectId: expense.projectId ? {
-        _id: expense.projectId._id.toString(),
-        name: expense.projectId.name,
-        type: expense.projectId.type,
+        _id: expense.projectId._id?.toString() || '',
+        name: expense.projectId.name || '',
+        type: expense.projectId.type || '',
       } : null,
+      date: expense.date?.toISOString(),
+      category: expense.category,
+      amount: expense.amount,
+      note: expense.note || '',
       createdAt: expense.createdAt?.toISOString(),
       updatedAt: expense.updatedAt?.toISOString(),
-      date: expense.date?.toISOString(),
     }));
     
     return NextResponse.json(formattedExpenses);
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       amount: body.amount,
       note: body.note || '',
       receiptImage: body.receiptImage || '',
-      createdBy: session.user.id,
+      createdBy: (session.user as any).id,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -112,16 +112,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        ...populatedExpense,
-        _id: populatedExpense._id.toString(),
-        projectId: populatedExpense.projectId ? {
-          _id: populatedExpense.projectId._id.toString(),
-          name: populatedExpense.projectId.name,
-          type: populatedExpense.projectId.type,
+        _id: (populatedExpense as any)._id?.toString() || '',
+        projectId: (populatedExpense as any).projectId ? {
+          _id: (populatedExpense as any).projectId._id?.toString() || '',
+          name: (populatedExpense as any).projectId.name || '',
+          type: (populatedExpense as any).projectId.type || '',
         } : null,
-        date: populatedExpense.date.toISOString(),
-        createdAt: populatedExpense.createdAt.toISOString(),
-        updatedAt: populatedExpense.updatedAt.toISOString(),
+        date: (populatedExpense as any).date?.toISOString(),
+        category: (populatedExpense as any).category,
+        amount: (populatedExpense as any).amount,
+        note: (populatedExpense as any).note || '',
+        createdAt: (populatedExpense as any).createdAt?.toISOString(),
+        updatedAt: (populatedExpense as any).updatedAt?.toISOString(),
       }
     }, { status: 201 });
   } catch (error) {

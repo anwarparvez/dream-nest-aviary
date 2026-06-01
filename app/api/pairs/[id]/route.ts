@@ -37,26 +37,49 @@ export async function GET(
     const totalChicks = breedingRecords.reduce((sum, record) => sum + (record.chickCount || 0), 0);
     const hatchRate = totalEggs > 0 ? (totalChicks / totalEggs) * 100 : 0;
     
+    const pairAny = pair as any;
+    
     return NextResponse.json({
-      ...pair,
-      _id: pair._id.toString(),
-      projectId: pair.projectId ? {
-        _id: pair.projectId._id.toString(),
-        name: pair.projectId.name,
-        type: pair.projectId.type,
+      _id: pairAny._id?.toString() || '',
+      pairNumber: pairAny.pairNumber || '',
+      projectId: pairAny.projectId ? {
+        _id: pairAny.projectId._id?.toString() || '',
+        name: pairAny.projectId.name || '',
+        type: pairAny.projectId.type || '',
       } : null,
+      species: pairAny.species || '',
+      breed: pairAny.breed || '',
+      maleName: pairAny.maleName || '',
+      maleId: pairAny.maleId || '',
+      femaleName: pairAny.femaleName || '',
+      femaleId: pairAny.femaleId || '',
+      ringNumber: pairAny.ringNumber || '',
+      color: pairAny.color || '',
+      age: pairAny.age || '',
+      purchaseDate: pairAny.purchaseDate?.toISOString(),
+      purchasePrice: pairAny.purchasePrice || 0,
+      notes: pairAny.notes || '',
+      images: pairAny.images || [],
+      status: pairAny.status || 'active',
+      createdAt: pairAny.createdAt?.toISOString(),
+      updatedAt: pairAny.updatedAt?.toISOString(),
       breedingStats: {
         totalBreedings: breedingRecords.length,
         totalEggs,
         totalChicks,
         hatchRate: hatchRate.toFixed(2),
       },
-      breedingRecords: breedingRecords.map(record => ({
-        ...record,
-        _id: record._id.toString(),
-        pairId: record.pairId.toString(),
+      breedingRecords: breedingRecords.map((record: any) => ({
+        _id: record._id?.toString() || '',
+        pairId: record.pairId?.toString() || '',
         eggDate: record.eggDate?.toISOString(),
+        eggCount: record.eggCount || 0,
         hatchDate: record.hatchDate?.toISOString(),
+        chickCount: record.chickCount || 0,
+        chickStatus: record.chickStatus || '',
+        notes: record.notes || '',
+        createdAt: record.createdAt?.toISOString(),
+        updatedAt: record.updatedAt?.toISOString(),
       })),
     });
   } catch (error) {
@@ -76,7 +99,7 @@ export async function PUT(
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -138,17 +161,33 @@ export async function PUT(
       return NextResponse.json({ error: 'Pair not found' }, { status: 404 });
     }
     
+    const pairObj = pair.toObject();
+    
     return NextResponse.json({
       success: true,
       data: {
-        ...pair.toObject(),
-        _id: pair._id.toString(),
-        projectId: pair.projectId ? {
-          _id: pair.projectId._id.toString(),
-          name: pair.projectId.name,
-          type: pair.projectId.type,
+        _id: pairObj._id.toString(),
+        pairNumber: pairObj.pairNumber,
+        projectId: pairObj.projectId ? {
+          _id: (pairObj.projectId as any)._id.toString(),
+          name: (pairObj.projectId as any).name,
+          type: (pairObj.projectId as any).type,
         } : null,
-        purchaseDate: pair.purchaseDate?.toISOString(),
+        species: pairObj.species,
+        breed: pairObj.breed,
+        maleName: pairObj.maleName,
+        maleId: pairObj.maleId || '',
+        femaleName: pairObj.femaleName,
+        femaleId: pairObj.femaleId || '',
+        ringNumber: pairObj.ringNumber || '',
+        color: pairObj.color || '',
+        age: pairObj.age || '',
+        purchaseDate: pairObj.purchaseDate?.toISOString(),
+        purchasePrice: pairObj.purchasePrice,
+        notes: pairObj.notes || '',
+        status: pairObj.status,
+        createdAt: pairObj.createdAt?.toISOString(),
+        updatedAt: pairObj.updatedAt?.toISOString(),
       }
     });
   } catch (error) {
@@ -168,7 +207,7 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

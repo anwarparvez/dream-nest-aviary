@@ -21,7 +21,8 @@ const projectSchema = z.object({
 
 export async function createProject(formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 
@@ -48,7 +49,7 @@ export async function createProject(formData: FormData) {
     
     const project = await Project.create({
       ...result.data,
-      createdBy: session.user.id,
+      createdBy: (session.user as any).id,
       createdAt: new Date(),
       updatedAt: new Date(),
     })
@@ -64,7 +65,8 @@ export async function createProject(formData: FormData) {
 
 export async function updateProject(id: string, formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 
@@ -108,7 +110,8 @@ export async function updateProject(id: string, formData: FormData) {
 
 export async function deleteProject(formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 
@@ -132,7 +135,8 @@ export async function deleteProject(formData: FormData) {
 
 export async function archiveProject(formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 

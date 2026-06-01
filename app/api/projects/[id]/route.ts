@@ -30,9 +30,18 @@ export async function GET(
     // Get pair count
     const pairCount = await Pair.countDocuments({ projectId: id });
     
+    const projectAny = project as any;
+    
     return NextResponse.json({
-      ...project,
-      _id: project._id.toString(),
+      _id: projectAny._id?.toString() || '',
+      name: projectAny.name || '',
+      type: projectAny.type || '',
+      startDate: projectAny.startDate?.toISOString(),
+      targetPairCount: projectAny.targetPairCount || 0,
+      status: projectAny.status || 'active',
+      notes: projectAny.notes || '',
+      createdAt: projectAny.createdAt?.toISOString(),
+      updatedAt: projectAny.updatedAt?.toISOString(),
       pairCount,
     });
   } catch (error) {
@@ -52,7 +61,7 @@ export async function PUT(
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -63,8 +72,12 @@ export async function PUT(
     const project = await Project.findByIdAndUpdate(
       id,
       {
-        ...body,
-        startDate: body.startDate ? new Date(body.startDate) : undefined,
+        name: body.name,
+        type: body.type,
+        startDate: body.startDate ? new Date(body.startDate) : new Date(),
+        targetPairCount: body.targetPairCount,
+        status: body.status,
+        notes: body.notes || '',
         updatedAt: new Date(),
       },
       { new: true }
@@ -74,11 +87,20 @@ export async function PUT(
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
     
+    const projectObj = project.toObject();
+    
     return NextResponse.json({
       success: true,
       data: {
-        ...project.toObject(),
-        _id: project._id.toString(),
+        _id: projectObj._id.toString(),
+        name: projectObj.name,
+        type: projectObj.type,
+        startDate: projectObj.startDate?.toISOString(),
+        targetPairCount: projectObj.targetPairCount,
+        status: projectObj.status,
+        notes: projectObj.notes || '',
+        createdAt: projectObj.createdAt?.toISOString(),
+        updatedAt: projectObj.updatedAt?.toISOString(),
       }
     });
   } catch (error) {
@@ -98,7 +120,7 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

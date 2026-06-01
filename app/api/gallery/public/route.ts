@@ -2,6 +2,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db/mongodb';
 import BirdImage from '@/lib/db/models/BirdImage';
 
+interface PopulatedImage {
+  _id: any;
+  title: string;
+  species: string;
+  breed: string;
+  tags: string[];
+  description?: string;
+  imageUrl: string;
+  visibility: string;
+  projectId?: {
+    _id: any;
+    name: string;
+  };
+  uploadedBy?: {
+    _id: any;
+    name: string;
+  };
+  createdAt: Date;
+}
+
 // GET /api/gallery/public - Get public images for visitors
 export async function GET(request: NextRequest) {
   try {
@@ -44,21 +64,27 @@ export async function GET(request: NextRequest) {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .lean(),
+        .lean() as unknown as PopulatedImage[],
       BirdImage.countDocuments(query),
     ]);
     
-    const formattedImages = images.map(image => ({
-      ...image,
-      _id: image._id.toString(),
+    const formattedImages = images.map((image: PopulatedImage) => ({
+      _id: image._id?.toString() || '',
+      title: image.title || '',
+      species: image.species || '',
+      breed: image.breed || '',
+      tags: image.tags || [],
+      description: image.description || '',
+      imageUrl: image.imageUrl || '',
+      visibility: image.visibility || 'public',
       projectId: image.projectId ? {
-        _id: image.projectId._id.toString(),
-        name: image.projectId.name,
+        _id: image.projectId._id?.toString() || '',
+        name: image.projectId.name || '',
       } : null,
-      uploadedBy: {
-        _id: image.uploadedBy._id.toString(),
-        name: image.uploadedBy.name,
-      },
+      uploadedBy: image.uploadedBy ? {
+        _id: image.uploadedBy._id?.toString() || '',
+        name: image.uploadedBy.name || '',
+      } : null,
       createdAt: image.createdAt?.toISOString(),
     }));
     

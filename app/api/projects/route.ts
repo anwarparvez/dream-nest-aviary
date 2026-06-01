@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth.config';
 import { connectDB } from '@/lib/db/mongodb';
 import Project from '@/lib/db/models/Project';
+import Pair from '@/lib/db/models/Pair';
 
 // GET /api/projects - Get all projects
 export async function GET() {
@@ -16,19 +17,29 @@ export async function GET() {
     await connectDB();
     
     const projects = await Project.find({ 
-      createdBy: session.user.id 
+      createdBy: (session.user as any).id 
     }).sort({ createdAt: -1 }).lean();
     
-    // Convert MongoDB documents to plain objects with string IDs
-    const formattedProjects = projects.map(project => ({
-      ...project,
-      _id: project._id.toString(),
-      createdAt: project.createdAt?.toISOString(),
-      updatedAt: project.updatedAt?.toISOString(),
-      startDate: project.startDate?.toISOString(),
-    }));
+    // Get pair counts for each project
+    const projectsWithCounts = await Promise.all(
+      projects.map(async (project: any) => {
+        const pairCount = await Pair.countDocuments({ projectId: project._id });
+        return {
+          _id: project._id?.toString() || '',
+          name: project.name || '',
+          type: project.type || '',
+          startDate: project.startDate?.toISOString(),
+          targetPairCount: project.targetPairCount || 0,
+          status: project.status || 'active',
+          notes: project.notes || '',
+          createdAt: project.createdAt?.toISOString(),
+          updatedAt: project.updatedAt?.toISOString(),
+          pairCount,
+        };
+      })
+    );
     
-    return NextResponse.json(formattedProjects);
+    return NextResponse.json(projectsWithCounts);
   } catch (error) {
     console.error('Error fetching projects:', error);
     return NextResponse.json(
@@ -43,7 +54,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -66,7 +77,7 @@ export async function POST(request: NextRequest) {
       targetPairCount: body.targetPairCount,
       status: body.status || 'active',
       notes: body.notes || '',
-      createdBy: session.user.id,
+      createdBy: (session.user as any).id,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -74,8 +85,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        ...project.toObject(),
         _id: project._id.toString(),
+        name: project.name,
+        type: project.type,
+        startDate: project.startDate.toISOString(),
+        targetPairCount: project.targetPairCount,
+        status: project.status,
+        notes: project.notes || '',
+        createdAt: project.createdAt.toISOString(),
+        updatedAt: project.updatedAt.toISOString(),
       }
     }, { status: 201 });
   } catch (error) {

@@ -25,14 +25,36 @@ export async function GET(
       return NextResponse.json({ error: 'Image not found' }, { status: 404 });
     }
     
+    // Type assertion for the image object
+    const imageAny = image as any;
+    
     // Check visibility
-    if (image.visibility === 'private' && (!session || session.user.role !== 'admin')) {
+    if (imageAny.visibility === 'private' && (!session || !session.user || (session.user as any).role !== 'admin')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
     return NextResponse.json({
-      ...image,
-      _id: image._id.toString(),
+      ...imageAny,
+      _id: imageAny._id?.toString() || '',
+      projectId: imageAny.projectId ? {
+        _id: imageAny.projectId._id?.toString() || '',
+        name: imageAny.projectId.name || '',
+        type: imageAny.projectId.type || '',
+      } : null,
+      pairId: imageAny.pairId ? {
+        _id: imageAny.pairId._id?.toString() || '',
+        pairNumber: imageAny.pairId.pairNumber || '',
+        maleName: imageAny.pairId.maleName || '',
+        femaleName: imageAny.pairId.femaleName || '',
+        breed: imageAny.pairId.breed || '',
+      } : null,
+      uploadedBy: imageAny.uploadedBy ? {
+        _id: imageAny.uploadedBy._id?.toString() || '',
+        name: imageAny.uploadedBy.name || '',
+        email: imageAny.uploadedBy.email || '',
+      } : null,
+      createdAt: imageAny.createdAt?.toISOString(),
+      updatedAt: imageAny.updatedAt?.toISOString(),
     });
   } catch (error) {
     console.error('Error fetching image:', error);
@@ -51,7 +73,7 @@ export async function PUT(
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -77,11 +99,13 @@ export async function PUT(
       return NextResponse.json({ error: 'Image not found' }, { status: 404 });
     }
     
+    const imageObj = image.toObject();
+    
     return NextResponse.json({
       success: true,
       data: {
-        ...image.toObject(),
-        _id: image._id.toString(),
+        ...imageObj,
+        _id: imageObj._id.toString(),
       }
     });
   } catch (error) {
@@ -101,7 +125,7 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

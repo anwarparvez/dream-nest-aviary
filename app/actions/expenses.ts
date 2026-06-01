@@ -18,7 +18,8 @@ const expenseSchema = z.object({
 
 export async function createExpense(formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 
@@ -41,7 +42,7 @@ export async function createExpense(formData: FormData) {
     
     const expense = await Expense.create({
       ...result.data,
-      createdBy: session.user.id,
+      createdBy: (session.user as any).id, // Use type assertion to access id
       createdAt: new Date(),
       updatedAt: new Date(),
     })
@@ -58,7 +59,8 @@ export async function createExpense(formData: FormData) {
 
 export async function updateExpense(id: string, formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 
@@ -101,7 +103,8 @@ export async function updateExpense(id: string, formData: FormData) {
 
 export async function deleteExpense(formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 

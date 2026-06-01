@@ -24,24 +24,35 @@ export async function GET(request: NextRequest) {
       query = { projectId };
     }
 
-    // Populate projectId to get project details
     const pairs = await Pair.find(query)
       .populate('projectId', 'name type')
       .sort({ createdAt: -1 })
       .lean();
     
-    // Format the response
-    const formattedPairs = pairs.map(pair => ({
-      ...pair,
-      _id: pair._id.toString(),
+    const formattedPairs = pairs.map((pair: any) => ({
+      _id: pair._id?.toString() || '',
+      pairNumber: pair.pairNumber || '',
       projectId: pair.projectId ? {
-        _id: pair.projectId._id.toString(),
-        name: pair.projectId.name,
-        type: pair.projectId.type,
+        _id: pair.projectId._id?.toString() || '',
+        name: pair.projectId.name || '',
+        type: pair.projectId.type || '',
       } : null,
+      species: pair.species || '',
+      breed: pair.breed || '',
+      maleName: pair.maleName || '',
+      maleId: pair.maleId || '',
+      femaleName: pair.femaleName || '',
+      femaleId: pair.femaleId || '',
+      ringNumber: pair.ringNumber || '',
+      color: pair.color || '',
+      age: pair.age || '',
+      purchaseDate: pair.purchaseDate?.toISOString(),
+      purchasePrice: pair.purchasePrice || 0,
+      notes: pair.notes || '',
+      images: pair.images || [],
+      status: pair.status || 'active',
       createdAt: pair.createdAt?.toISOString(),
       updatedAt: pair.updatedAt?.toISOString(),
-      purchaseDate: pair.purchaseDate?.toISOString(),
     }));
     
     return NextResponse.json(formattedPairs);
@@ -59,7 +70,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -121,24 +132,27 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date(),
     });
     
-    // Return with populated project data
-    const populatedPair = await Pair.findById(pair._id)
-      .populate('projectId', 'name type')
-      .lean();
-    
     return NextResponse.json({
       success: true,
       data: {
-        ...populatedPair,
-        _id: populatedPair._id.toString(),
-        projectId: populatedPair.projectId ? {
-          _id: populatedPair.projectId._id.toString(),
-          name: populatedPair.projectId.name,
-          type: populatedPair.projectId.type,
-        } : null,
-        purchaseDate: populatedPair.purchaseDate?.toISOString(),
-        createdAt: populatedPair.createdAt?.toISOString(),
-        updatedAt: populatedPair.updatedAt?.toISOString(),
+        _id: pair._id.toString(),
+        pairNumber: pair.pairNumber,
+        projectId: pair.projectId.toString(),
+        species: pair.species,
+        breed: pair.breed,
+        maleName: pair.maleName,
+        maleId: pair.maleId || '',
+        femaleName: pair.femaleName,
+        femaleId: pair.femaleId || '',
+        ringNumber: pair.ringNumber || '',
+        color: pair.color || '',
+        age: pair.age || '',
+        purchaseDate: pair.purchaseDate.toISOString(),
+        purchasePrice: pair.purchasePrice,
+        notes: pair.notes || '',
+        status: pair.status,
+        createdAt: pair.createdAt.toISOString(),
+        updatedAt: pair.updatedAt.toISOString(),
       }
     }, { status: 201 });
   } catch (error) {

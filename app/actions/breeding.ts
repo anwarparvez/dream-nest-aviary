@@ -21,7 +21,9 @@ const breedingSchema = z.object({
 
 export async function createBreedingRecord(formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  // Check if session exists and user has admin role
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 
@@ -64,7 +66,9 @@ export async function createBreedingRecord(formData: FormData) {
 
 export async function updateBreedingRecord(id: string, formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  // Check if session exists and user has admin role
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 
@@ -107,7 +111,9 @@ export async function updateBreedingRecord(id: string, formData: FormData) {
 
 export async function deleteBreedingRecord(formData: FormData) {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  // Check if session exists and user has admin role
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 

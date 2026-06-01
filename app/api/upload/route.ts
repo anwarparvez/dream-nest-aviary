@@ -14,7 +14,8 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'admin') {
+    // Check if session exists and user has admin role
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -23,6 +24,16 @@ export async function POST(request: NextRequest) {
     
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      return NextResponse.json({ error: 'File must be an image' }, { status: 400 });
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: 'File size must be less than 5MB' }, { status: 400 });
     }
 
     // Convert file to buffer
@@ -56,7 +67,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Upload error:', error);
-    return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Upload failed: ' + (error as Error).message }, { status: 500 });
   }
 }
 
@@ -64,7 +75,8 @@ export async function DELETE(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'admin') {
+    // Check if session exists and user has admin role
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -81,6 +93,6 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true, result });
   } catch (error) {
     console.error('Delete error:', error);
-    return NextResponse.json({ error: 'Delete failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Delete failed: ' + (error as Error).message }, { status: 500 });
   }
 }

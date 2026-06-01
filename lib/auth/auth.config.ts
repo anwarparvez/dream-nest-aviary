@@ -35,6 +35,7 @@ export const authOptions: NextAuthOptions = {
             throw new Error('Invalid credentials');
           }
 
+          // Return user with role property
           return {
             id: user._id.toString(),
             email: user.email,
@@ -55,6 +56,7 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        // Now TypeScript knows user has role property
         token.role = user.role;
         token.id = user.id;
       }

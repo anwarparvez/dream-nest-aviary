@@ -39,14 +39,16 @@ import {
   Eye,
   Bird,
   Search,
-  Filter,
   X,
   Heart,
-  Star,
   TrendingUp,
 } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
+
+type SpeciesType = 'Pigeon' | 'Chicken';
+type PairStatus = 'active' | 'breeding' | 'sold';
 
 interface Pair {
   _id: string;
@@ -55,7 +57,7 @@ interface Pair {
     _id: string;
     name: string;
   };
-  species: 'Pigeon' | 'Chicken';
+  species: SpeciesType;
   breed: string;
   maleName: string;
   maleId?: string;
@@ -68,7 +70,7 @@ interface Pair {
   purchasePrice: number;
   notes?: string;
   images: string[];
-  status: 'active' | 'breeding' | 'sold';
+  status: PairStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -90,10 +92,11 @@ export default function PairsPage() {
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPair, setEditingPair] = useState<Pair | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     pairNumber: '',
     projectId: '',
-    species: 'Pigeon' as const,
+    species: 'Pigeon' as SpeciesType,
     breed: '',
     maleName: '',
     maleId: '',
@@ -105,7 +108,7 @@ export default function PairsPage() {
     purchaseDate: '',
     purchasePrice: 0,
     notes: '',
-    status: 'active' as const,
+    status: 'active' as PairStatus,
   });
 
   useEffect(() => {
@@ -126,6 +129,7 @@ export default function PairsPage() {
       setProjects(Array.isArray(projectsData) ? projectsData : []);
     } catch (error) {
       console.error('Failed to fetch data:', error);
+      toast.error('Failed to load pairs');
     } finally {
       setLoading(false);
     }
@@ -133,6 +137,7 @@ export default function PairsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
     
     try {
       const url = editingPair ? `/api/pairs/${editingPair._id}` : '/api/pairs';
@@ -145,15 +150,19 @@ export default function PairsPage() {
       });
 
       if (response.ok) {
+        toast.success(editingPair ? 'Pair updated successfully' : 'Pair added successfully');
         setDialogOpen(false);
         resetForm();
         fetchData();
       } else {
         const error = await response.json();
-        console.error('Failed to save pair:', error);
+        toast.error(error.error || 'Failed to save pair');
       }
     } catch (error) {
       console.error('Failed to save pair:', error);
+      toast.error('Failed to save pair');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -165,10 +174,14 @@ export default function PairsPage() {
         });
 
         if (response.ok) {
+          toast.success('Pair deleted successfully');
           fetchData();
+        } else {
+          toast.error('Failed to delete pair');
         }
       } catch (error) {
         console.error('Failed to delete pair:', error);
+        toast.error('Failed to delete pair');
       }
     }
   };
@@ -216,7 +229,7 @@ export default function PairsPage() {
     });
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: PairStatus) => {
     switch (status) {
       case 'active':
         return <Badge className="bg-green-500">Active</Badge>;
@@ -229,7 +242,7 @@ export default function PairsPage() {
     }
   };
 
-  const getSpeciesIcon = (species: string) => {
+  const getSpeciesIcon = (species: SpeciesType) => {
     return species === 'Pigeon' ? '🐦' : '🐔';
   };
 
@@ -309,7 +322,11 @@ export default function PairsPage() {
                   <Label>Project *</Label>
                   <Select
                     value={formData.projectId}
-                    onValueChange={(value) => setFormData({ ...formData, projectId: value })}
+                    onValueChange={(value) => {
+                      if (value) {
+                        setFormData({ ...formData, projectId: value });
+                      }
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select project" />
@@ -328,7 +345,11 @@ export default function PairsPage() {
                   <Label>Species *</Label>
                   <Select
                     value={formData.species}
-                    onValueChange={(value: any) => setFormData({ ...formData, species: value })}
+                    onValueChange={(value) => {
+                      if (value === 'Pigeon' || value === 'Chicken') {
+                        setFormData({ ...formData, species: value });
+                      }
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -422,7 +443,11 @@ export default function PairsPage() {
                     <Label>Status</Label>
                     <Select
                       value={formData.status}
-                      onValueChange={(value: any) => setFormData({ ...formData, status: value })}
+                      onValueChange={(value) => {
+                        if (value === 'active' || value === 'breeding' || value === 'sold') {
+                          setFormData({ ...formData, status: value });
+                        }
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -473,8 +498,8 @@ export default function PairsPage() {
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">
-                  {editingPair ? 'Update Pair' : 'Add Pair'}
+                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={submitting}>
+                  {submitting ? 'Saving...' : (editingPair ? 'Update Pair' : 'Add Pair')}
                 </Button>
               </DialogFooter>
             </form>
@@ -553,7 +578,16 @@ export default function PairsPage() {
                 className="pl-10"
               />
             </div>
-            <Select value={selectedSpecies} onValueChange={setSelectedSpecies}>
+            
+            {/* Fixed Species Filter */}
+            <Select 
+              value={selectedSpecies} 
+              onValueChange={(value) => {
+                if (value) {
+                  setSelectedSpecies(value);
+                }
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Filter by species" />
               </SelectTrigger>
@@ -563,7 +597,16 @@ export default function PairsPage() {
                 <SelectItem value="Chicken">Chickens</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            
+            {/* Fixed Status Filter */}
+            <Select 
+              value={selectedStatus} 
+              onValueChange={(value) => {
+                if (value) {
+                  setSelectedStatus(value);
+                }
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
@@ -574,7 +617,16 @@ export default function PairsPage() {
                 <SelectItem value="sold">Sold</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={selectedProject} onValueChange={setSelectedProject}>
+            
+            {/* Fixed Project Filter */}
+            <Select 
+              value={selectedProject} 
+              onValueChange={(value) => {
+                if (value) {
+                  setSelectedProject(value);
+                }
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Filter by project" />
               </SelectTrigger>

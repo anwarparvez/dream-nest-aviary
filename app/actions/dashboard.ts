@@ -10,7 +10,9 @@ import { authOptions } from '@/lib/auth/auth.config'
 
 export async function getDashboardStats() {
   const session = await getServerSession(authOptions)
-  if (!session || session.user.role !== 'admin') {
+  
+  // Check if session exists and user has admin role
+  if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
 
@@ -43,7 +45,8 @@ export async function getDashboardStats() {
       .sort({ createdAt: -1 })
       .limit(8)
       .populate('uploadedBy', 'name')
-      .lean(),
+      .lean()
+      .exec(),
   ])
 
   const totalIncome = 50000
@@ -85,18 +88,23 @@ export async function getDashboardStats() {
     monthlyExpense: monthlyExpense[0]?.total || 0,
     totalIncome,
     profitLoss,
-    recentUploads: recentUploads.map(img => ({
-      ...img,
-      _id: img._id.toString(),
+    recentUploads: (recentUploads || []).map((img: any) => ({
+      _id: img._id?.toString() || '',
+      title: img.title || '',
+      imageUrl: img.imageUrl || '',
+      createdAt: img.createdAt || new Date(),
+      uploadedBy: {
+        name: img.uploadedBy?.name || 'Unknown',
+      },
     })),
-    monthlyExpenseData: monthlyExpenseData.map(item => ({
+    monthlyExpenseData: monthlyExpenseData.map((item: any) => ({
       month: item._id,
       amount: item.amount,
     })),
-    breedingSuccessData: breedingSuccessData.map(item => ({
+    breedingSuccessData: breedingSuccessData.map((item: any) => ({
       pair: item.pairNumber,
-      hatchRate: item.totalEggs > 0 ? ((item.totalChicks / item.totalEggs) * 100).toFixed(2) : 0,
-      survivalRate: item.totalEggs > 0 ? ((item.totalChicks / item.totalEggs) * 100).toFixed(2) : 0,
+      hatchRate: item.totalEggs > 0 ? ((item.totalChicks / item.totalEggs) * 100).toFixed(2) : '0',
+      survivalRate: item.totalEggs > 0 ? ((item.totalChicks / item.totalEggs) * 100).toFixed(2) : '0',
     })),
   }
 }

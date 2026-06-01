@@ -12,8 +12,8 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     
-    // Fixed: Consistent role check
-    if (!session || session.user.role !== 'admin') {
+    // Fixed: Consistent role check with null safety
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -44,7 +44,7 @@ export async function PUT(
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || session.user.role !== 'admin') {
+    if (!session || !session.user || (session.user as any).role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -86,18 +86,23 @@ export async function PUT(
       return NextResponse.json({ error: 'Expense not found' }, { status: 404 });
     }
     
+    // Safely convert to plain object with string IDs
+    const expenseObj = expense.toObject();
+    
     return NextResponse.json({
       success: true,
       data: {
-        ...expense.toObject(),
-        _id: expense._id.toString(),
-        projectId: expense.projectId ? {
-          _id: expense.projectId._id.toString(),
-          name: expense.projectId.name,
+        _id: expenseObj._id.toString(),
+        projectId: expenseObj.projectId ? {
+          _id: (expenseObj.projectId as any)._id.toString(),
+          name: (expenseObj.projectId as any).name,
         } : null,
-        date: expense.date.toISOString(),
-        createdAt: expense.createdAt.toISOString(),
-        updatedAt: expense.updatedAt.toISOString(),
+        date: expenseObj.date.toISOString(),
+        category: expenseObj.category,
+        amount: expenseObj.amount,
+        note: expenseObj.note || '',
+        createdAt: expenseObj.createdAt.toISOString(),
+        updatedAt: expenseObj.updatedAt.toISOString(),
       }
     });
   } catch (error) {
