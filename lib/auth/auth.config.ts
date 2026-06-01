@@ -35,7 +35,6 @@ export const authOptions: NextAuthOptions = {
             throw new Error('Invalid credentials');
           }
 
-          // Return user with role property
           return {
             id: user._id.toString(),
             email: user.email,
@@ -56,7 +55,6 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        // Now TypeScript knows user has role property
         token.role = user.role;
         token.id = user.id;
       }
@@ -76,8 +74,11 @@ export const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60,
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === 'development',
+  trustHost: true,
+  // Next.js 16 compatibility
+  useSecureCookies: process.env.NODE_ENV === 'production',
 };
