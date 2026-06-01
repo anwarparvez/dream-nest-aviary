@@ -96,6 +96,20 @@ interface BreedingRecord {
   notes?: string;
 }
 
+// Safe date formatting helper
+const formatDateForInput = (dateString: string | undefined | null): string => {
+  if (!dateString || typeof dateString !== 'string') {
+    return '';
+  }
+  try {
+    const parts = dateString.split('T');
+    return parts[0] || '';
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return '';
+  }
+};
+
 export default function PairDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -107,6 +121,7 @@ export default function PairDetailPage() {
   const [editBreedingDialogOpen, setEditBreedingDialogOpen] = useState(false);
   const [editingBreedingRecord, setEditingBreedingRecord] = useState<BreedingRecord | null>(null);
   const [activeTab, setActiveTab] = useState('details');
+  const [submitting, setSubmitting] = useState(false);
   const [editFormData, setEditFormData] = useState({
     pairNumber: '',
     projectId: '',
@@ -159,6 +174,7 @@ export default function PairDetailPage() {
 
   const handleUpdatePair = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
       const response = await fetch(`/api/pairs/${params.id}`, {
         method: 'PUT',
@@ -177,6 +193,8 @@ export default function PairDetailPage() {
     } catch (error) {
       console.error('Failed to update pair:', error);
       toast.error('Failed to update pair');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -202,6 +220,7 @@ export default function PairDetailPage() {
 
   const handleAddBreedingRecord = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
     try {
       const response = await fetch('/api/breeding', {
         method: 'POST',
@@ -224,6 +243,8 @@ export default function PairDetailPage() {
     } catch (error) {
       console.error('Failed to add breeding record:', error);
       toast.error('Failed to add breeding record');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -231,6 +252,7 @@ export default function PairDetailPage() {
     e.preventDefault();
     if (!editingBreedingRecord) return;
     
+    setSubmitting(true);
     try {
       const response = await fetch(`/api/breeding/${editingBreedingRecord._id}`, {
         method: 'PUT',
@@ -251,6 +273,8 @@ export default function PairDetailPage() {
     } catch (error) {
       console.error('Failed to update breeding record:', error);
       toast.error('Failed to update breeding record');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -277,9 +301,9 @@ export default function PairDetailPage() {
   const handleEditBreedingRecord = (record: BreedingRecord) => {
     setEditingBreedingRecord(record);
     setBreedingFormData({
-      eggDate: record.eggDate.split('T')[0],
+      eggDate: formatDateForInput(record.eggDate),
       eggCount: record.eggCount,
-      hatchDate: record.hatchDate ? record.hatchDate.split('T')[0] : '',
+      hatchDate: record.hatchDate ? formatDateForInput(record.hatchDate) : '',
       chickCount: record.chickCount || 0,
       chickStatus: record.chickStatus || '',
       notes: record.notes || '',
@@ -301,7 +325,7 @@ export default function PairDetailPage() {
         ringNumber: pair.ringNumber || '',
         color: pair.color || '',
         age: pair.age || '',
-        purchaseDate: pair.purchaseDate.split('T')[0],
+        purchaseDate: formatDateForInput(pair.purchaseDate),
         purchasePrice: pair.purchasePrice,
         notes: pair.notes || '',
         status: pair.status,
@@ -657,8 +681,8 @@ export default function PairDetailPage() {
                         <Button type="button" variant="outline" onClick={() => setAddBreedingDialogOpen(false)}>
                           Cancel
                         </Button>
-                        <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">
-                          Add Record
+                        <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={submitting}>
+                          {submitting ? 'Adding...' : 'Add Record'}
                         </Button>
                       </DialogFooter>
                     </form>
@@ -827,8 +851,8 @@ export default function PairDetailPage() {
               <Button type="button" variant="outline" onClick={() => setEditBreedingDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">
-                Update Record
+              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={submitting}>
+                {submitting ? 'Updating...' : 'Update Record'}
               </Button>
             </DialogFooter>
           </form>
@@ -949,8 +973,8 @@ export default function PairDetailPage() {
               <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">
-                Update Pair
+              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={submitting}>
+                {submitting ? 'Saving...' : 'Update Pair'}
               </Button>
             </DialogFooter>
           </form>

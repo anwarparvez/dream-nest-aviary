@@ -18,6 +18,12 @@ export async function getDashboardStats() {
 
   await connectDB()
   
+  // Cast models to any to avoid TypeScript complex type inference
+  const ProjectModel = Project as any
+  const PairModel = Pair as any
+  const ExpenseModel = Expense as any
+  const BirdImageModel = BirdImage as any
+  
   const [
     totalProjects,
     totalPairs,
@@ -26,11 +32,11 @@ export async function getDashboardStats() {
     monthlyExpense,
     recentUploads,
   ] = await Promise.all([
-    Project.countDocuments(),
-    Pair.countDocuments(),
-    Pair.countDocuments({ species: 'Pigeon' }),
-    Pair.countDocuments({ species: 'Chicken' }),
-    Expense.aggregate([
+    ProjectModel.countDocuments(),
+    PairModel.countDocuments(),
+    PairModel.countDocuments({ species: 'Pigeon' }),
+    PairModel.countDocuments({ species: 'Chicken' }),
+    ExpenseModel.aggregate([
       {
         $match: {
           date: {
@@ -41,7 +47,7 @@ export async function getDashboardStats() {
       },
       { $group: { _id: null, total: { $sum: '$amount' } } },
     ]),
-    BirdImage.find()
+    BirdImageModel.find()
       .sort({ createdAt: -1 })
       .limit(8)
       .populate('uploadedBy', 'name')
@@ -52,7 +58,7 @@ export async function getDashboardStats() {
   const totalIncome = 50000
   const profitLoss = totalIncome - (monthlyExpense[0]?.total || 0)
 
-  const monthlyExpenseData = await Expense.aggregate([
+  const monthlyExpenseData = await ExpenseModel.aggregate([
     {
       $group: {
         _id: { $month: '$date' },
@@ -62,7 +68,7 @@ export async function getDashboardStats() {
     { $sort: { '_id': 1 } },
   ])
 
-  const breedingSuccessData = await Pair.aggregate([
+  const breedingSuccessData = await PairModel.aggregate([
     {
       $lookup: {
         from: 'breedingrecords',

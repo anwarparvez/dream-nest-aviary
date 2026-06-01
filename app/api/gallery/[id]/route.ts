@@ -15,7 +15,10 @@ export async function GET(
 
     await connectDB();
     
-    const image = await BirdImage.findById(id)
+    // Cast model to any to avoid TypeScript issues
+    const BirdImageModel = BirdImage as any;
+    
+    const image = await BirdImageModel.findById(id)
       .populate('projectId', 'name type')
       .populate('pairId', 'pairNumber maleName femaleName breed')
       .populate('uploadedBy', 'name email')
@@ -34,8 +37,14 @@ export async function GET(
     }
     
     return NextResponse.json({
-      ...imageAny,
       _id: imageAny._id?.toString() || '',
+      title: imageAny.title || '',
+      species: imageAny.species || '',
+      breed: imageAny.breed || '',
+      tags: imageAny.tags || [],
+      description: imageAny.description || '',
+      imageUrl: imageAny.imageUrl || '',
+      visibility: imageAny.visibility || 'public',
       projectId: imageAny.projectId ? {
         _id: imageAny.projectId._id?.toString() || '',
         name: imageAny.projectId.name || '',
@@ -81,7 +90,10 @@ export async function PUT(
     const body = await request.json();
     await connectDB();
     
-    const image = await BirdImage.findByIdAndUpdate(
+    // Cast model to any to avoid TypeScript issues
+    const BirdImageModel = BirdImage as any;
+    
+    const image = await BirdImageModel.findByIdAndUpdate(
       id,
       {
         title: body.title,
@@ -132,7 +144,9 @@ export async function DELETE(
     const { id } = await params;
     await connectDB();
     
-    const image = await BirdImage.findByIdAndDelete(id);
+    // Cast model to any to avoid TypeScript issues
+    const BirdImageModel = BirdImage as any;
+    const image = await BirdImageModel.findByIdAndDelete(id);
     
     if (!image) {
       return NextResponse.json({ error: 'Image not found' }, { status: 404 });

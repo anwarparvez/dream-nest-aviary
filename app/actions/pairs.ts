@@ -61,9 +61,25 @@ export async function createPair(formData: FormData) {
   try {
     await connectDB()
     
-    const pair = await Pair.create({
-      ...result.data,
+    const PairModel = Pair as any
+    
+    const pair = await PairModel.create({
+      pairNumber: result.data.pairNumber,
+      projectId: result.data.projectId,
+      species: result.data.species,
+      breed: result.data.breed,
+      maleName: result.data.maleName,
+      maleId: result.data.maleId || '',
+      femaleName: result.data.femaleName,
+      femaleId: result.data.femaleId || '',
+      ringNumber: result.data.ringNumber || '',
+      color: result.data.color || '',
+      age: result.data.age || '',
+      purchaseDate: new Date(result.data.purchaseDate),
+      purchasePrice: result.data.purchasePrice,
+      notes: result.data.notes || '',
       images: [],
+      status: result.data.status,
       createdAt: new Date(),
       updatedAt: new Date(),
     })
@@ -112,9 +128,28 @@ export async function updatePair(id: string, formData: FormData) {
   try {
     await connectDB()
     
-    const pair = await Pair.findByIdAndUpdate(
+    const PairModel = Pair as any
+    
+    const pair = await PairModel.findByIdAndUpdate(
       id,
-      { ...result.data, updatedAt: new Date() },
+      {
+        pairNumber: result.data.pairNumber,
+        projectId: result.data.projectId,
+        species: result.data.species,
+        breed: result.data.breed,
+        maleName: result.data.maleName,
+        maleId: result.data.maleId || '',
+        femaleName: result.data.femaleName,
+        femaleId: result.data.femaleId || '',
+        ringNumber: result.data.ringNumber || '',
+        color: result.data.color || '',
+        age: result.data.age || '',
+        purchaseDate: new Date(result.data.purchaseDate),
+        purchasePrice: result.data.purchasePrice,
+        notes: result.data.notes || '',
+        status: result.data.status,
+        updatedAt: new Date(),
+      },
       { new: true }
     )
 
@@ -145,8 +180,11 @@ export async function deletePair(formData: FormData) {
   try {
     await connectDB()
     
-    await BreedingRecord.deleteMany({ pairId: id })
-    await Pair.findByIdAndDelete(id)
+    const BreedingRecordModel = BreedingRecord as any
+    const PairModel = Pair as any
+    
+    await BreedingRecordModel.deleteMany({ pairId: id })
+    await PairModel.findByIdAndDelete(id)
     
     revalidatePath('/pairs')
     revalidatePath(`/projects/${projectId}`)
@@ -170,7 +208,9 @@ export async function updatePairStatus(formData: FormData) {
 
   try {
     await connectDB()
-    await Pair.findByIdAndUpdate(id, { status, updatedAt: new Date() })
+    
+    const PairModel = Pair as any
+    await PairModel.findByIdAndUpdate(id, { status, updatedAt: new Date() })
     
     revalidatePath('/pairs')
     revalidatePath(`/pairs/${id}`)

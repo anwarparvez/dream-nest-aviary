@@ -7,8 +7,11 @@ export async function GET() {
   try {
     await connectDB();
     
+    // Cast model to any to avoid TypeScript issues
+    const UserModel = User as any;
+    
     // Check if admin already exists
-    const existingAdmin = await User.findOne({ email: 'admin@dreamnest.com' });
+    const existingAdmin = await UserModel.findOne({ email: 'admin@dreamnest.com' });
     
     if (existingAdmin) {
       return NextResponse.json({
@@ -25,7 +28,7 @@ export async function GET() {
     const hashedPassword = await bcrypt.hash('admin123', 10);
     
     // Create default admin user
-    const adminUser = await User.create({
+    const adminUser = await UserModel.create({
       email: 'admin@dreamnest.com',
       password: hashedPassword,
       name: 'Admin User',

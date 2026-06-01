@@ -40,9 +40,16 @@ export async function createExpense(formData: FormData) {
   try {
     await connectDB()
     
-    const expense = await Expense.create({
-      ...result.data,
-      createdBy: (session.user as any).id, // Use type assertion to access id
+    // Cast Expense model to any to avoid TypeScript overload issues
+    const ExpenseModel = Expense as any
+    
+    const expense = await ExpenseModel.create({
+      projectId: result.data.projectId,
+      date: new Date(result.data.date),
+      category: result.data.category,
+      amount: result.data.amount,
+      note: result.data.note || '',
+      createdBy: (session.user as any).id,
       createdAt: new Date(),
       updatedAt: new Date(),
     })
@@ -81,9 +88,18 @@ export async function updateExpense(id: string, formData: FormData) {
   try {
     await connectDB()
     
-    const expense = await Expense.findByIdAndUpdate(
+    const ExpenseModel = Expense as any
+    
+    const expense = await ExpenseModel.findByIdAndUpdate(
       id,
-      { ...result.data, updatedAt: new Date() },
+      {
+        projectId: result.data.projectId,
+        date: new Date(result.data.date),
+        category: result.data.category,
+        amount: result.data.amount,
+        note: result.data.note || '',
+        updatedAt: new Date(),
+      },
       { new: true }
     )
 
@@ -113,7 +129,9 @@ export async function deleteExpense(formData: FormData) {
 
   try {
     await connectDB()
-    await Expense.findByIdAndDelete(id)
+    
+    const ExpenseModel = Expense as any
+    await ExpenseModel.findByIdAndDelete(id)
     
     revalidatePath('/expenses')
     revalidatePath(`/projects/${projectId}`)

@@ -101,6 +101,20 @@ const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
   Other: '#6b7280',
 };
 
+// Safe date formatting function
+const formatDateForInput = (dateString: string | undefined | null): string => {
+  if (!dateString || typeof dateString !== 'string') {
+    return '';
+  }
+  try {
+    const parts = dateString.split('T');
+    return parts[0] || '';
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return '';
+  }
+};
+
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -224,7 +238,7 @@ export default function ExpensesPage() {
     setEditingExpense(expense);
     setFormData({
       projectId: expense.projectId._id,
-      date: expense.date.split('T')[0],
+      date: formatDateForInput(expense.date),
       category: expense.category,
       amount: expense.amount,
       note: expense.note || '',
@@ -257,6 +271,12 @@ export default function ExpensesPage() {
       Amount: expense.amount,
       Note: expense.note || '',
     }));
+
+    // Guard clause to ensure csvData has data
+    if (!csvData.length || !csvData[0]) {
+      toast.error('No data to export');
+      return;
+    }
 
     const headers = Object.keys(csvData[0]).join(',');
     const rows = csvData.map(row => Object.values(row).join(','));
@@ -337,6 +357,7 @@ export default function ExpensesPage() {
 
   return (
     <div className="container mx-auto py-8 px-4">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Expenses</h1>
@@ -370,7 +391,7 @@ export default function ExpensesPage() {
                   <div>
                     <Label>Project *</Label>
                     <Select
-                      value={formData.projectId || undefined}
+                      value={formData.projectId}
                       onValueChange={(value) => {
                         if (value) {
                           setFormData({ ...formData, projectId: value });
@@ -531,15 +552,9 @@ export default function ExpensesPage() {
               />
             </div>
             
-            {/* Fixed Category Filter */}
-            <Select 
-              value={selectedCategory} 
-              onValueChange={(value) => {
-                if (value) {
-                  setSelectedCategory(value);
-                }
-              }}
-            >
+            <Select value={selectedCategory} onValueChange={(value) => {
+              if (value) setSelectedCategory(value);
+            }}>
               <SelectTrigger>
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
@@ -551,15 +566,9 @@ export default function ExpensesPage() {
               </SelectContent>
             </Select>
             
-            {/* Fixed Project Filter */}
-            <Select 
-              value={selectedProject} 
-              onValueChange={(value) => {
-                if (value) {
-                  setSelectedProject(value);
-                }
-              }}
-            >
+            <Select value={selectedProject} onValueChange={(value) => {
+              if (value) setSelectedProject(value);
+            }}>
               <SelectTrigger>
                 <SelectValue placeholder="Filter by project" />
               </SelectTrigger>

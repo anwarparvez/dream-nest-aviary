@@ -22,7 +22,6 @@ const breedingSchema = z.object({
 export async function createBreedingRecord(formData: FormData) {
   const session = await getServerSession(authOptions)
   
-  // Check if session exists and user has admin role
   if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
@@ -46,18 +45,35 @@ export async function createBreedingRecord(formData: FormData) {
   try {
     await connectDB()
     
-    const record = await BreedingRecord.create({
-      ...result.data,
+    // Create breeding record using new operator
+    const record = new BreedingRecord({
+      pairId: result.data.pairId,
+      eggDate: new Date(result.data.eggDate),
+      eggCount: result.data.eggCount,
+      hatchDate: result.data.hatchDate ? new Date(result.data.hatchDate) : null,
+      chickCount: result.data.chickCount || 0,
+      chickStatus: result.data.chickStatus || '',
+      notes: result.data.notes || '',
       createdAt: new Date(),
       updatedAt: new Date(),
     })
+    
+    await record.save()
 
-    await Pair.findByIdAndUpdate(rawData.pairId, { status: 'breeding' })
+    // Update pair status to breeding using updateOne instead of findByIdAndUpdate
+    const PairModel = Pair as any
+    await PairModel.updateOne(
+      { _id: result.data.pairId },
+      { 
+        status: 'breeding',
+        updatedAt: new Date()
+      }
+    )
 
     revalidatePath('/pairs')
-    revalidatePath(`/pairs/${rawData.pairId}`)
+    revalidatePath(`/pairs/${result.data.pairId}`)
     revalidatePath('/dashboard')
-    redirect(`/pairs/${rawData.pairId}`)
+    redirect(`/pairs/${result.data.pairId}`)
   } catch (error) {
     console.error('Error creating breeding record:', error)
     return { success: false, errors: { _form: ['Failed to create breeding record'] } }
@@ -67,7 +83,6 @@ export async function createBreedingRecord(formData: FormData) {
 export async function updateBreedingRecord(id: string, formData: FormData) {
   const session = await getServerSession(authOptions)
   
-  // Check if session exists and user has admin role
   if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
@@ -90,10 +105,22 @@ export async function updateBreedingRecord(id: string, formData: FormData) {
   try {
     await connectDB()
     
-    const record = await BreedingRecord.findByIdAndUpdate(
+    const updateData: any = {
+      eggCount: result.data.eggCount,
+      chickCount: result.data.chickCount || 0,
+      chickStatus: result.data.chickStatus || '',
+      notes: result.data.notes || '',
+      updatedAt: new Date(),
+    }
+    
+    if (result.data.eggDate) updateData.eggDate = new Date(result.data.eggDate)
+    if (result.data.hatchDate) updateData.hatchDate = new Date(result.data.hatchDate)
+    
+    const BreedingRecordModel = BreedingRecord as any
+    const record = await BreedingRecordModel.findByIdAndUpdate(
       id,
-      { ...result.data, updatedAt: new Date() },
-      { new: true }
+      updateData,
+      { new: true, runValidators: true }
     )
 
     if (!record) {
@@ -112,7 +139,6 @@ export async function updateBreedingRecord(id: string, formData: FormData) {
 export async function deleteBreedingRecord(formData: FormData) {
   const session = await getServerSession(authOptions)
   
-  // Check if session exists and user has admin role
   if (!session || !session.user || (session.user as any).role !== 'admin') {
     throw new Error('Unauthorized')
   }
@@ -122,11 +148,20 @@ export async function deleteBreedingRecord(formData: FormData) {
 
   try {
     await connectDB()
-    await BreedingRecord.findByIdAndDelete(id)
     
-    const remainingRecords = await BreedingRecord.countDocuments({ pairId })
+    const BreedingRecordModel = BreedingRecord as any
+    await BreedingRecordModel.findByIdAndDelete(id)
+    
+    const remainingRecords = await BreedingRecordModel.countDocuments({ pairId })
     if (remainingRecords === 0) {
-      await Pair.findByIdAndUpdate(pairId, { status: 'active' })
+      const PairModel = Pair as any
+      await PairModel.updateOne(
+        { _id: pairId },
+        { 
+          status: 'active',
+          updatedAt: new Date()
+        }
+      )
     }
 
     revalidatePath('/pairs')

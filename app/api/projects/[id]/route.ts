@@ -21,14 +21,17 @@ export async function GET(
     const { id } = await params;
     await connectDB();
     
-    const project = await Project.findById(id).lean();
+    // Cast model to any to avoid TypeScript issues
+    const ProjectModel = Project as any;
+    const project = await ProjectModel.findById(id).lean();
     
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
     
     // Get pair count
-    const pairCount = await Pair.countDocuments({ projectId: id });
+    const PairModel = Pair as any;
+    const pairCount = await PairModel.countDocuments({ projectId: id });
     
     const projectAny = project as any;
     
@@ -69,7 +72,10 @@ export async function PUT(
     const body = await request.json();
     await connectDB();
     
-    const project = await Project.findByIdAndUpdate(
+    // Cast model to any to avoid TypeScript issues
+    const ProjectModel = Project as any;
+    
+    const project = await ProjectModel.findByIdAndUpdate(
       id,
       {
         name: body.name,
@@ -127,11 +133,16 @@ export async function DELETE(
     const { id } = await params;
     await connectDB();
     
-    // Delete associated pairs and expenses
-    await Pair.deleteMany({ projectId: id });
-    await Expense.deleteMany({ projectId: id });
+    // Cast models to any to avoid TypeScript issues
+    const PairModel = Pair as any;
+    const ExpenseModel = Expense as any;
+    const ProjectModel = Project as any;
     
-    const project = await Project.findByIdAndDelete(id);
+    // Delete associated pairs and expenses
+    await PairModel.deleteMany({ projectId: id });
+    await ExpenseModel.deleteMany({ projectId: id });
+    
+    const project = await ProjectModel.findByIdAndDelete(id);
     
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });

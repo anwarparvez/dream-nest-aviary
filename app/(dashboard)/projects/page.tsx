@@ -1,4 +1,3 @@
-// app/(dashboard)/projects/page.tsx
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
@@ -35,20 +34,34 @@ import { format } from 'date-fns';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
+type ProjectType = 'Pigeon' | 'Chicken' | 'Mixed';
+type ProjectStatus = 'active' | 'completed' | 'archived';
+
 interface Project {
   _id: string;
   name: string;
-  type: 'Pigeon' | 'Chicken' | 'Mixed';
+  type: ProjectType;
   startDate: string;
   targetPairCount: number;
-  status: 'active' | 'completed' | 'archived';
+  status: ProjectStatus;
   notes?: string;
   pairCount?: number;
   createdAt: string;
 }
 
-type ProjectType = 'Pigeon' | 'Chicken' | 'Mixed';
-type ProjectStatus = 'active' | 'completed' | 'archived';
+// Safe date formatting helper
+const formatDateForInput = (dateString: string | undefined | null): string => {
+  if (!dateString || typeof dateString !== 'string') {
+    return '';
+  }
+  try {
+    const parts = dateString.split('T');
+    return parts[0] || '';
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return '';
+  }
+};
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -168,7 +181,7 @@ export default function ProjectsPage() {
     setFormData({
       name: project.name,
       type: project.type,
-      startDate: project.startDate.split('T')[0],
+      startDate: formatDateForInput(project.startDate),
       targetPairCount: project.targetPairCount,
       status: project.status,
       notes: project.notes || '',
@@ -256,12 +269,7 @@ export default function ProjectsPage() {
                   <Label htmlFor="type">Project Type *</Label>
                   <Select
                     value={formData.type}
-                    onValueChange={(value) => {
-                      // Handle null or undefined values
-                      if (value === 'Pigeon' || value === 'Chicken' || value === 'Mixed') {
-                        setFormData({ ...formData, type: value });
-                      }
-                    }}
+                    onValueChange={(value: ProjectType) => setFormData({ ...formData, type: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select type" />
@@ -301,11 +309,7 @@ export default function ProjectsPage() {
                   <Label htmlFor="status">Status</Label>
                   <Select
                     value={formData.status}
-                    onValueChange={(value) => {
-                      if (value === 'active' || value === 'completed' || value === 'archived') {
-                        setFormData({ ...formData, status: value });
-                      }
-                    }}
+                    onValueChange={(value: ProjectStatus) => setFormData({ ...formData, status: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />

@@ -47,8 +47,15 @@ export async function createProject(formData: FormData) {
   try {
     await connectDB()
     
-    const project = await Project.create({
-      ...result.data,
+    const ProjectModel = Project as any
+    
+    const project = await ProjectModel.create({
+      name: result.data.name,
+      type: result.data.type,
+      startDate: new Date(result.data.startDate),
+      targetPairCount: result.data.targetPairCount,
+      status: result.data.status,
+      notes: result.data.notes || '',
       createdBy: (session.user as any).id,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -88,9 +95,19 @@ export async function updateProject(id: string, formData: FormData) {
   try {
     await connectDB()
     
-    const project = await Project.findByIdAndUpdate(
+    const ProjectModel = Project as any
+    
+    const project = await ProjectModel.findByIdAndUpdate(
       id,
-      { ...result.data, updatedAt: new Date() },
+      {
+        name: result.data.name,
+        type: result.data.type,
+        startDate: new Date(result.data.startDate),
+        targetPairCount: result.data.targetPairCount,
+        status: result.data.status,
+        notes: result.data.notes || '',
+        updatedAt: new Date(),
+      },
       { new: true }
     )
 
@@ -120,9 +137,13 @@ export async function deleteProject(formData: FormData) {
   try {
     await connectDB()
     
-    await Pair.deleteMany({ projectId: id })
-    await Expense.deleteMany({ projectId: id })
-    await Project.findByIdAndDelete(id)
+    const PairModel = Pair as any
+    const ExpenseModel = Expense as any
+    const ProjectModel = Project as any
+    
+    await PairModel.deleteMany({ projectId: id })
+    await ExpenseModel.deleteMany({ projectId: id })
+    await ProjectModel.findByIdAndDelete(id)
     
     revalidatePath('/projects')
     revalidatePath('/dashboard')
@@ -144,7 +165,9 @@ export async function archiveProject(formData: FormData) {
 
   try {
     await connectDB()
-    await Project.findByIdAndUpdate(id, { status: 'archived', updatedAt: new Date() })
+    
+    const ProjectModel = Project as any
+    await ProjectModel.findByIdAndUpdate(id, { status: 'archived', updatedAt: new Date() })
     
     revalidatePath('/projects')
     revalidatePath(`/projects/${id}`)

@@ -19,12 +19,15 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
     
+    // Cast model to any to avoid TypeScript issues
+    const ExpenseModel = Expense as any;
+    
     let query = {};
     if (projectId) {
       query = { projectId };
     }
 
-    const expenses = await Expense.find(query)
+    const expenses = await ExpenseModel.find(query)
       .populate('projectId', 'name type')
       .sort({ date: -1 })
       .lean();
@@ -84,7 +87,8 @@ export async function POST(request: NextRequest) {
     await connectDB();
     
     // Check if project exists
-    const project = await Project.findById(body.projectId);
+    const ProjectModel = Project as any;
+    const project = await ProjectModel.findById(body.projectId);
     if (!project) {
       return NextResponse.json(
         { error: 'Project not found' },
@@ -92,7 +96,10 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const expense = await Expense.create({
+    // Cast model to any to avoid TypeScript issues
+    const ExpenseModel = Expense as any;
+    
+    const expense = await ExpenseModel.create({
       projectId: body.projectId,
       date: new Date(body.date),
       category: body.category,
@@ -105,7 +112,7 @@ export async function POST(request: NextRequest) {
     });
     
     // Populate project data for response
-    const populatedExpense = await Expense.findById(expense._id)
+    const populatedExpense = await ExpenseModel.findById(expense._id)
       .populate('projectId', 'name type')
       .lean();
     

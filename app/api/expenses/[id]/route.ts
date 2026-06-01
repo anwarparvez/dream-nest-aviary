@@ -20,7 +20,9 @@ export async function DELETE(
     const { id } = await params;
     await connectDB();
     
-    const expense = await Expense.findByIdAndDelete(id);
+    // Cast model to any to avoid TypeScript issues
+    const ExpenseModel = Expense as any;
+    const expense = await ExpenseModel.findByIdAndDelete(id);
     
     if (!expense) {
       return NextResponse.json({ error: 'Expense not found' }, { status: 404 });
@@ -69,7 +71,10 @@ export async function PUT(
       );
     }
     
-    const expense = await Expense.findByIdAndUpdate(
+    // Cast model to any to avoid TypeScript issues
+    const ExpenseModel = Expense as any;
+    
+    const expense = await ExpenseModel.findByIdAndUpdate(
       id,
       {
         projectId: body.projectId,
@@ -86,7 +91,6 @@ export async function PUT(
       return NextResponse.json({ error: 'Expense not found' }, { status: 404 });
     }
     
-    // Safely convert to plain object with string IDs
     const expenseObj = expense.toObject();
     
     return NextResponse.json({

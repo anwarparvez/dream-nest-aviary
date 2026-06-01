@@ -20,6 +20,9 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
     
+    // Cast model to any to avoid TypeScript issues
+    const BirdImageModel = BirdImage as any;
+    
     let query: any = {};
     
     // Filter by project
@@ -54,7 +57,7 @@ export async function GET(request: NextRequest) {
       ];
     }
     
-    const images = await BirdImage.find(query)
+    const images = await BirdImageModel.find(query)
       .populate('projectId', 'name type')
       .populate('pairId', 'pairNumber maleName femaleName')
       .populate('uploadedBy', 'name email')
@@ -122,7 +125,8 @@ export async function POST(request: NextRequest) {
     
     // If projectId is provided, verify it exists
     if (body.projectId) {
-      const project = await Project.findById(body.projectId);
+      const ProjectModel = Project as any;
+      const project = await ProjectModel.findById(body.projectId);
       if (!project) {
         return NextResponse.json(
           { error: 'Project not found' },
@@ -133,7 +137,8 @@ export async function POST(request: NextRequest) {
     
     // If pairId is provided, verify it exists
     if (body.pairId) {
-      const pair = await Pair.findById(body.pairId);
+      const PairModel = Pair as any;
+      const pair = await PairModel.findById(body.pairId);
       if (!pair) {
         return NextResponse.json(
           { error: 'Pair not found' },
@@ -142,7 +147,10 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    const image = await BirdImage.create({
+    // Cast model to any to avoid TypeScript issues
+    const BirdImageModel = BirdImage as any;
+    
+    const image = await BirdImageModel.create({
       title: body.title,
       species: body.species,
       breed: body.breed,

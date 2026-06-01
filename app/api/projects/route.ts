@@ -16,14 +16,18 @@ export async function GET() {
 
     await connectDB();
     
-    const projects = await Project.find({ 
+    // Cast model to any to avoid TypeScript issues
+    const ProjectModel = Project as any;
+    const PairModel = Pair as any;
+    
+    const projects = await ProjectModel.find({ 
       createdBy: (session.user as any).id 
     }).sort({ createdAt: -1 }).lean();
     
     // Get pair counts for each project
     const projectsWithCounts = await Promise.all(
       projects.map(async (project: any) => {
-        const pairCount = await Pair.countDocuments({ projectId: project._id });
+        const pairCount = await PairModel.countDocuments({ projectId: project._id });
         return {
           _id: project._id?.toString() || '',
           name: project.name || '',
@@ -70,7 +74,10 @@ export async function POST(request: NextRequest) {
     
     await connectDB();
     
-    const project = await Project.create({
+    // Cast model to any to avoid TypeScript issues
+    const ProjectModel = Project as any;
+    
+    const project = await ProjectModel.create({
       name: body.name,
       type: body.type,
       startDate: new Date(body.startDate),

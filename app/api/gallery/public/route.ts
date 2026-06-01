@@ -2,26 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db/mongodb';
 import BirdImage from '@/lib/db/models/BirdImage';
 
-interface PopulatedImage {
-  _id: any;
-  title: string;
-  species: string;
-  breed: string;
-  tags: string[];
-  description?: string;
-  imageUrl: string;
-  visibility: string;
-  projectId?: {
-    _id: any;
-    name: string;
-  };
-  uploadedBy?: {
-    _id: any;
-    name: string;
-  };
-  createdAt: Date;
-}
-
 // GET /api/gallery/public - Get public images for visitors
 export async function GET(request: NextRequest) {
   try {
@@ -33,6 +13,9 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
 
     await connectDB();
+    
+    // Cast model to any to avoid TypeScript issues
+    const BirdImageModel = BirdImage as any;
     
     let query: any = { visibility: 'public' };
     
@@ -58,17 +41,17 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
     
     const [images, total] = await Promise.all([
-      BirdImage.find(query)
+      BirdImageModel.find(query)
         .populate('projectId', 'name')
         .populate('uploadedBy', 'name')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .lean() as unknown as PopulatedImage[],
-      BirdImage.countDocuments(query),
+        .lean(),
+      BirdImageModel.countDocuments(query),
     ]);
     
-    const formattedImages = images.map((image: PopulatedImage) => ({
+    const formattedImages = images.map((image: any) => ({
       _id: image._id?.toString() || '',
       title: image.title || '',
       species: image.species || '',

@@ -15,7 +15,9 @@ export function Header() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
+  // Get page title from pathname - Fixed: handle undefined path
   const getPageTitle = () => {
+    if (!pathname) return 'Dashboard';
     const path = pathname.split('/')[1];
     const titles: Record<string, string> = {
       dashboard: 'Dashboard',
@@ -26,9 +28,11 @@ export function Header() {
       reports: 'Reports',
       settings: 'Settings',
     };
-    return titles[path] || 'Dashboard';
+    // Safe access with fallback
+    return path && titles[path] ? titles[path] : 'Dashboard';
   };
 
+  // Get user initials for avatar fallback
   const getUserInitials = () => {
     if (!session?.user?.name) return 'U';
     return session.user.name
@@ -44,6 +48,7 @@ export function Header() {
     try {
       await signOut({ callbackUrl: '/login', redirect: true });
     } catch (error) {
+      console.error('Sign out error:', error);
       toast.error('Failed to sign out', {
         description: 'Please try again.',
       });
@@ -57,7 +62,7 @@ export function Header() {
         <div className="flex h-full items-center justify-between px-6">
           <div>
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {getPageTitle()}
+              Dashboard
             </h2>
             <div className="h-4 w-32 bg-gray-200 rounded animate-pulse mt-1"></div>
           </div>
@@ -73,6 +78,7 @@ export function Header() {
   return (
     <header className="fixed right-0 top-0 z-30 h-16 bg-white border-b border-gray-200 dark:bg-gray-950 dark:border-gray-800" style={{ left: '16rem' }}>
       <div className="flex h-full items-center justify-between px-6">
+        {/* Page Title */}
         <div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {getPageTitle()}
@@ -82,7 +88,9 @@ export function Header() {
           </p>
         </div>
 
+        {/* Right Side Actions */}
         <div className="flex items-center gap-4">
+          {/* Notifications Button */}
           <Button 
             variant="ghost" 
             size="icon" 

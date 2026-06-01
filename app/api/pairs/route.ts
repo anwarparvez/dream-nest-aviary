@@ -19,12 +19,15 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
     
+    // Cast model to any to avoid TypeScript issues
+    const PairModel = Pair as any;
+    
     let query = {};
     if (projectId) {
       query = { projectId };
     }
 
-    const pairs = await Pair.find(query)
+    const pairs = await PairModel.find(query)
       .populate('projectId', 'name type')
       .sort({ createdAt: -1 })
       .lean();
@@ -89,8 +92,12 @@ export async function POST(request: NextRequest) {
     
     await connectDB();
     
+    // Cast models to any to avoid TypeScript issues
+    const ProjectModel = Project as any;
+    const PairModel = Pair as any;
+    
     // Check if project exists
-    const project = await Project.findById(body.projectId);
+    const project = await ProjectModel.findById(body.projectId);
     if (!project) {
       return NextResponse.json(
         { error: 'Project not found' },
@@ -99,7 +106,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Check if pair number is unique within the project
-    const existingPair = await Pair.findOne({ 
+    const existingPair = await PairModel.findOne({ 
       projectId: body.projectId, 
       pairNumber: body.pairNumber 
     });
@@ -111,7 +118,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const pair = await Pair.create({
+    const pair = await PairModel.create({
       pairNumber: body.pairNumber,
       projectId: body.projectId,
       species: body.species,

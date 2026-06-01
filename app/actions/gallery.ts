@@ -51,10 +51,20 @@ export async function uploadBirdImage(formData: FormData) {
   try {
     await connectDB()
     
-    const image = await BirdImage.create({
-      ...result.data,
-      tags,
+    // Cast BirdImage model to any to avoid TypeScript overload issues
+    const BirdImageModel = BirdImage as any
+    
+    const image = await BirdImageModel.create({
+      title: result.data.title,
+      species: result.data.species,
+      breed: result.data.breed,
+      tags: tags,
+      description: result.data.description || '',
+      imageUrl: result.data.imageUrl,
       uploadedBy: (session.user as any).id,
+      projectId: result.data.projectId || null,
+      pairId: result.data.pairId || null,
+      visibility: result.data.visibility,
       createdAt: new Date(),
     })
 
@@ -85,7 +95,9 @@ export async function deleteImage(formData: FormData) {
 
   try {
     await connectDB()
-    await BirdImage.findByIdAndDelete(id)
+    
+    const BirdImageModel = BirdImage as any
+    await BirdImageModel.findByIdAndDelete(id)
     
     revalidatePath('/gallery')
     revalidatePath('/explore')
@@ -108,7 +120,9 @@ export async function updateImageVisibility(formData: FormData) {
 
   try {
     await connectDB()
-    await BirdImage.findByIdAndUpdate(id, { visibility, updatedAt: new Date() })
+    
+    const BirdImageModel = BirdImage as any
+    await BirdImageModel.findByIdAndUpdate(id, { visibility, updatedAt: new Date() })
     
     revalidatePath('/gallery')
     revalidatePath('/explore')

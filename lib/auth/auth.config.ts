@@ -1,4 +1,4 @@
-import { NextAuthOptions } from 'next-auth';
+import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import bcrypt from 'bcryptjs';
@@ -20,7 +20,8 @@ export const authOptions: NextAuthOptions = {
 
         try {
           await connectDB();
-          const user = await User.findOne({ email: credentials.email });
+          const UserModel = User as any;
+          const user = await UserModel.findOne({ email: credentials.email });
 
           if (!user || !user.password) {
             throw new Error('Invalid credentials');
@@ -67,6 +68,13 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
+    async redirect({ url, baseUrl }) {
+      // Allows relative callback URLs
+      if (url.startsWith('/')) return `${baseUrl}${url}`;
+      // Allows callback URLs on the same origin
+      else if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
+    },
   },
   pages: {
     signIn: '/login',
@@ -77,8 +85,5 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60,
   },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: process.env.NODE_ENV === 'development',
-  trustHost: true,
-  // Next.js 16 compatibility
-  useSecureCookies: process.env.NODE_ENV === 'production',
+  debug: false, // Set to false to avoid verbose logging
 };

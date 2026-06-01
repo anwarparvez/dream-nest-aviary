@@ -4,26 +4,6 @@ import { authOptions } from '@/lib/auth/auth.config';
 import { connectDB } from '@/lib/db/mongodb';
 import BreedingRecord from '@/lib/db/models/BreedingRecord';
 import Pair from '@/lib/db/models/Pair';
-import mongoose from 'mongoose';
-
-interface BreedingRecordDoc {
-  _id: mongoose.Types.ObjectId;
-  pairId: {
-    _id: mongoose.Types.ObjectId;
-    pairNumber: string;
-    maleName: string;
-    femaleName: string;
-    species: string;
-  };
-  eggDate: Date;
-  eggCount: number;
-  hatchDate?: Date;
-  chickCount?: number;
-  chickStatus?: string;
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 // GET /api/breeding - Get breeding records (optionally filtered by pairId)
 export async function GET(request: NextRequest) {
@@ -39,24 +19,27 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
     
+    // Cast model to any to avoid TypeScript issues
+    const BreedingRecordModel = BreedingRecord as any;
+    
     let query = {};
     if (pairId) {
       query = { pairId };
     }
 
-    const records = await BreedingRecord.find(query)
+    const records = await BreedingRecordModel.find(query)
       .populate('pairId', 'pairNumber maleName femaleName species')
       .sort({ eggDate: -1 })
-      .lean() as unknown as BreedingRecordDoc[];
+      .lean();
     
-    const formattedRecords = records.map((record: BreedingRecordDoc) => ({
-      _id: record._id.toString(),
+    const formattedRecords = records.map((record: any) => ({
+      _id: record._id?.toString() || '',
       pairId: record.pairId ? {
-        _id: record.pairId._id.toString(),
-        pairNumber: record.pairId.pairNumber,
-        maleName: record.pairId.maleName,
-        femaleName: record.pairId.femaleName,
-        species: record.pairId.species,
+        _id: record.pairId._id?.toString() || '',
+        pairNumber: record.pairId.pairNumber || '',
+        maleName: record.pairId.maleName || '',
+        femaleName: record.pairId.femaleName || '',
+        species: record.pairId.species || '',
       } : null,
       eggDate: record.eggDate?.toISOString(),
       eggCount: record.eggCount,
@@ -99,8 +82,12 @@ export async function POST(request: NextRequest) {
     
     await connectDB();
     
+    // Cast models to any
+    const PairModel = Pair as any;
+    const BreedingRecordModel = BreedingRecord as any;
+    
     // Check if pair exists
-    const pair = await Pair.findById(body.pairId);
+    const pair = await PairModel.findById(body.pairId);
     if (!pair) {
       return NextResponse.json(
         { error: 'Pair not found' },
@@ -108,7 +95,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const record = await BreedingRecord.create({
+    const record = await BreedingRecordModel.create({
       pairId: body.pairId,
       eggDate: new Date(body.eggDate),
       eggCount: body.eggCount,
@@ -121,7 +108,7 @@ export async function POST(request: NextRequest) {
     });
     
     // Update pair status to breeding
-    await Pair.findByIdAndUpdate(body.pairId, { 
+    await PairModel.findByIdAndUpdate(body.pairId, { 
       status: 'breeding',
       updatedAt: new Date()
     });

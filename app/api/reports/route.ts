@@ -25,6 +25,12 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
 
+    // Cast all models to any to avoid TypeScript issues
+    const ExpenseModel = Expense as any;
+    const PairModel = Pair as any;
+    const ProjectModel = Project as any;
+    const BreedingRecordModel = BreedingRecord as any;
+
     // Build query filters
     let expenseFilter: any = {};
     let pairFilter: any = {};
@@ -47,36 +53,36 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch expenses
-    const expenses = await Expense.find(expenseFilter)
+    const expenses = await ExpenseModel.find(expenseFilter)
       .populate('projectId', 'name')
       .lean();
 
     // Fetch pairs
-    const pairs = await Pair.find(pairFilter)
+    const pairs = await PairModel.find(pairFilter)
       .populate('projectId', 'name')
       .lean();
 
     // Fetch breeding records
     if (projectId && projectId !== 'all') {
-      const pairIds = pairs.map(p => (p as any)._id);
+      const pairIds = pairs.map((p: any) => p._id);
       breedingFilter.pairId = { $in: pairIds };
     }
-    const breedingRecords = await BreedingRecord.find(breedingFilter).lean();
+    const breedingRecords = await BreedingRecordModel.find(breedingFilter).lean();
 
     // Fetch projects
-    const projects = await Project.find().lean();
+    const projects = await ProjectModel.find().lean();
 
     // Calculate expense statistics
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalExpenses = expenses.reduce((sum: number, e: any) => sum + e.amount, 0);
     
     const byCategory: Record<string, number> = {};
-    expenses.forEach(expense => {
+    expenses.forEach((expense: any) => {
       byCategory[expense.category] = (byCategory[expense.category] || 0) + expense.amount;
     });
 
     // Group expenses by month
     const expenseByMonth: Record<string, number> = {};
-    expenses.forEach(expense => {
+    expenses.forEach((expense: any) => {
       const monthKey = format(new Date(expense.date), 'MMM yyyy');
       expenseByMonth[monthKey] = (expenseByMonth[monthKey] || 0) + expense.amount;
     });
@@ -92,8 +98,8 @@ export async function GET(request: NextRequest) {
 
     // Group expenses by project
     const byProject: Record<string, number> = {};
-    expenses.forEach(expense => {
-      const projectName = (expense.projectId as any)?.name || 'Unknown';
+    expenses.forEach((expense: any) => {
+      const projectName = expense.projectId?.name || 'Unknown';
       byProject[projectName] = (byProject[projectName] || 0) + expense.amount;
     });
 
@@ -104,18 +110,18 @@ export async function GET(request: NextRequest) {
 
     // Calculate pair statistics
     const totalPairs = pairs.length;
-    const activePairs = pairs.filter(p => p.status === 'active').length;
-    const breedingPairs = pairs.filter(p => p.status === 'breeding').length;
-    const soldPairs = pairs.filter(p => p.status === 'sold').length;
+    const activePairs = pairs.filter((p: any) => p.status === 'active').length;
+    const breedingPairs = pairs.filter((p: any) => p.status === 'breeding').length;
+    const soldPairs = pairs.filter((p: any) => p.status === 'sold').length;
 
     const bySpecies: Record<string, number> = {};
-    pairs.forEach(pair => {
+    pairs.forEach((pair: any) => {
       bySpecies[pair.species] = (bySpecies[pair.species] || 0) + 1;
     });
 
     const byProjectPairs: Record<string, number> = {};
-    pairs.forEach(pair => {
-      const projectName = (pair.projectId as any)?.name || 'Unknown';
+    pairs.forEach((pair: any) => {
+      const projectName = pair.projectId?.name || 'Unknown';
       byProjectPairs[projectName] = (byProjectPairs[projectName] || 0) + 1;
     });
 
@@ -124,19 +130,19 @@ export async function GET(request: NextRequest) {
       count,
     })).sort((a, b) => b.count - a.count);
 
-    const totalValue = pairs.reduce((sum, p) => sum + p.purchasePrice, 0);
+    const totalValue = pairs.reduce((sum: number, p: any) => sum + p.purchasePrice, 0);
     const averagePrice = totalPairs > 0 ? totalValue / totalPairs : 0;
 
     // Calculate breeding statistics
     const totalBreedings = breedingRecords.length;
-    const totalEggs = breedingRecords.reduce((sum, r) => sum + r.eggCount, 0);
-    const totalChicks = breedingRecords.reduce((sum, r) => sum + (r.chickCount || 0), 0);
+    const totalEggs = breedingRecords.reduce((sum: number, r: any) => sum + r.eggCount, 0);
+    const totalChicks = breedingRecords.reduce((sum: number, r: any) => sum + (r.chickCount || 0), 0);
     const hatchRate = totalEggs > 0 ? (totalChicks / totalEggs) * 100 : 0;
     const survivalRate = totalChicks > 0 ? 100 : 0;
 
     // Group breeding by month
     const breedingByMonth: Record<string, { eggs: number; chicks: number }> = {};
-    breedingRecords.forEach(record => {
+    breedingRecords.forEach((record: any) => {
       const monthKey = format(new Date(record.eggDate), 'MMM yyyy');
       if (!breedingByMonth[monthKey]) {
         breedingByMonth[monthKey] = { eggs: 0, chicks: 0 };
@@ -155,7 +161,7 @@ export async function GET(request: NextRequest) {
       return dateA.getTime() - dateB.getTime();
     });
 
-    // Find most productive pair - Fixed version
+    // Find most productive pair
     const pairProductivity: Record<string, { pairNumber: string; chicks: number }> = {};
     breedingRecords.forEach((record: any) => {
       const pairId = record.pairId.toString();
@@ -172,13 +178,13 @@ export async function GET(request: NextRequest) {
     const mostProductivePair = Object.values(pairProductivity).sort((a, b) => b.chicks - a.chicks)[0];
 
     // Calculate project statistics
-    const activeProjects = projects.filter(p => p.status === 'active').length;
-    const completedProjects = projects.filter(p => p.status === 'completed').length;
-    const archivedProjects = projects.filter(p => p.status === 'archived').length;
+    const activeProjects = projects.filter((p: any) => p.status === 'active').length;
+    const completedProjects = projects.filter((p: any) => p.status === 'completed').length;
+    const archivedProjects = projects.filter((p: any) => p.status === 'archived').length;
     const totalProjects = projects.length;
 
     const totalPairsInProjects = pairs.length;
-    const totalExpensesInProjects = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalExpensesInProjects = expenses.reduce((sum: number, e: any) => sum + e.amount, 0);
     const averagePairsPerProject = totalProjects > 0 ? totalPairsInProjects / totalProjects : 0;
     const averageExpensePerProject = totalProjects > 0 ? totalExpensesInProjects / totalProjects : 0;
 

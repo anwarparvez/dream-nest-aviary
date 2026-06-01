@@ -20,7 +20,10 @@ export async function GET(
     const { id } = await params;
     await connectDB();
     
-    const record = await BreedingRecord.findById(id)
+    // Cast model to any to avoid TypeScript issues
+    const BreedingRecordModel = BreedingRecord as any;
+    
+    const record = await BreedingRecordModel.findById(id)
       .populate('pairId', 'pairNumber maleName femaleName species breed')
       .lean();
     
@@ -28,28 +31,20 @@ export async function GET(
       return NextResponse.json({ error: 'Breeding record not found' }, { status: 404 });
     }
     
-    // Convert to plain object with string IDs
-    const responseData = {
-      _id: (record as any)._id?.toString(),
-      pairId: (record as any).pairId ? {
-        _id: (record as any).pairId._id?.toString(),
-        pairNumber: (record as any).pairId.pairNumber,
-        maleName: (record as any).pairId.maleName,
-        femaleName: (record as any).pairId.femaleName,
-        species: (record as any).pairId.species,
-        breed: (record as any).pairId.breed,
+    return NextResponse.json({
+      ...record,
+      _id: record._id?.toString(),
+      pairId: record.pairId ? {
+        _id: record.pairId._id?.toString(),
+        pairNumber: record.pairId.pairNumber,
+        maleName: record.pairId.maleName,
+        femaleName: record.pairId.femaleName,
+        species: record.pairId.species,
+        breed: record.pairId.breed,
       } : null,
-      eggDate: (record as any).eggDate,
-      eggCount: (record as any).eggCount,
-      hatchDate: (record as any).hatchDate,
-      chickCount: (record as any).chickCount,
-      chickStatus: (record as any).chickStatus,
-      notes: (record as any).notes,
-      createdAt: (record as any).createdAt,
-      updatedAt: (record as any).updatedAt,
-    };
-    
-    return NextResponse.json(responseData);
+      eggDate: record.eggDate?.toISOString(),
+      hatchDate: record.hatchDate?.toISOString(),
+    });
   } catch (error) {
     console.error('Error fetching breeding record:', error);
     return NextResponse.json(
@@ -76,6 +71,8 @@ export async function PUT(
     
     await connectDB();
     
+    const BreedingRecordModel = BreedingRecord as any;
+    
     const updateData: any = {
       eggCount: body.eggCount,
       chickCount: body.chickCount || 0,
@@ -87,7 +84,7 @@ export async function PUT(
     if (body.eggDate) updateData.eggDate = new Date(body.eggDate);
     if (body.hatchDate) updateData.hatchDate = new Date(body.hatchDate);
     
-    const record = await BreedingRecord.findByIdAndUpdate(
+    const record = await BreedingRecordModel.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
@@ -100,8 +97,8 @@ export async function PUT(
     return NextResponse.json({
       success: true,
       data: {
-        _id: record._id.toString(),
         ...record.toObject(),
+        _id: record._id.toString(),
       }
     });
   } catch (error) {
@@ -128,16 +125,19 @@ export async function DELETE(
     const { id } = await params;
     await connectDB();
     
-    const record = await BreedingRecord.findByIdAndDelete(id);
+    const BreedingRecordModel = BreedingRecord as any;
+    const PairModel = Pair as any;
+    
+    const record = await BreedingRecordModel.findByIdAndDelete(id);
     
     if (!record) {
       return NextResponse.json({ error: 'Breeding record not found' }, { status: 404 });
     }
     
     // Check if pair has any remaining breeding records
-    const remainingRecords = await BreedingRecord.countDocuments({ pairId: record.pairId });
+    const remainingRecords = await BreedingRecordModel.countDocuments({ pairId: record.pairId });
     if (remainingRecords === 0) {
-      await Pair.findByIdAndUpdate(record.pairId, { 
+      await PairModel.findByIdAndUpdate(record.pairId, { 
         status: 'active',
         updatedAt: new Date()
       });

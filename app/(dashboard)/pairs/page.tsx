@@ -81,6 +81,20 @@ interface Project {
   type: string;
 }
 
+// Safe date formatting helper
+const formatDateForInput = (dateString: string | undefined | null): string => {
+  if (!dateString || typeof dateString !== 'string') {
+    return '';
+  }
+  try {
+    const parts = dateString.split('T');
+    return parts[0] || '';
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return '';
+  }
+};
+
 export default function PairsPage() {
   const router = useRouter();
   const [pairs, setPairs] = useState<Pair[]>([]);
@@ -200,7 +214,7 @@ export default function PairsPage() {
       ringNumber: pair.ringNumber || '',
       color: pair.color || '',
       age: pair.age || '',
-      purchaseDate: pair.purchaseDate.split('T')[0],
+      purchaseDate: formatDateForInput(pair.purchaseDate),
       purchasePrice: pair.purchasePrice,
       notes: pair.notes || '',
       status: pair.status,
@@ -579,7 +593,6 @@ export default function PairsPage() {
               />
             </div>
             
-            {/* Fixed Species Filter */}
             <Select 
               value={selectedSpecies} 
               onValueChange={(value) => {
@@ -598,7 +611,6 @@ export default function PairsPage() {
               </SelectContent>
             </Select>
             
-            {/* Fixed Status Filter */}
             <Select 
               value={selectedStatus} 
               onValueChange={(value) => {
@@ -618,7 +630,6 @@ export default function PairsPage() {
               </SelectContent>
             </Select>
             
-            {/* Fixed Project Filter */}
             <Select 
               value={selectedProject} 
               onValueChange={(value) => {

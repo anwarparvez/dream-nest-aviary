@@ -21,7 +21,10 @@ export async function GET(
 
     await connectDB();
     
-    const pair = await Pair.findById(id)
+    // Cast model to any to avoid TypeScript issues
+    const PairModel = Pair as any;
+    
+    const pair = await PairModel.findById(id)
       .populate('projectId', 'name type')
       .lean();
     
@@ -29,12 +32,13 @@ export async function GET(
       return NextResponse.json({ error: 'Pair not found' }, { status: 404 });
     }
     
-    const breedingRecords = await BreedingRecord.find({ pairId: id })
+    const BreedingRecordModel = BreedingRecord as any;
+    const breedingRecords = await BreedingRecordModel.find({ pairId: id })
       .sort({ eggDate: -1 })
       .lean();
     
-    const totalEggs = breedingRecords.reduce((sum, record) => sum + record.eggCount, 0);
-    const totalChicks = breedingRecords.reduce((sum, record) => sum + (record.chickCount || 0), 0);
+    const totalEggs = breedingRecords.reduce((sum: number, record: any) => sum + record.eggCount, 0);
+    const totalChicks = breedingRecords.reduce((sum: number, record: any) => sum + (record.chickCount || 0), 0);
     const hatchRate = totalEggs > 0 ? (totalChicks / totalEggs) * 100 : 0;
     
     const pairAny = pair as any;
@@ -117,8 +121,11 @@ export async function PUT(
     
     await connectDB();
     
+    // Cast model to any to avoid TypeScript issues
+    const PairModel = Pair as any;
+    
     // Check if pair number already exists (excluding current pair)
-    const existingPair = await Pair.findOne({
+    const existingPair = await PairModel.findOne({
       pairNumber: body.pairNumber,
       projectId: body.projectId,
       _id: { $ne: id }
@@ -151,7 +158,7 @@ export async function PUT(
       updatedAt: new Date(),
     };
     
-    const pair = await Pair.findByIdAndUpdate(
+    const pair = await PairModel.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
@@ -214,10 +221,14 @@ export async function DELETE(
     const { id } = await params;
     await connectDB();
     
-    // Delete associated breeding records
-    await BreedingRecord.deleteMany({ pairId: id });
+    // Cast models to any to avoid TypeScript issues
+    const BreedingRecordModel = BreedingRecord as any;
+    const PairModel = Pair as any;
     
-    const pair = await Pair.findByIdAndDelete(id);
+    // Delete associated breeding records
+    await BreedingRecordModel.deleteMany({ pairId: id });
+    
+    const pair = await PairModel.findByIdAndDelete(id);
     
     if (!pair) {
       return NextResponse.json({ error: 'Pair not found' }, { status: 404 });
