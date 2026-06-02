@@ -40,3 +40,14 @@ export async function connectDB() {
   cached.conn = await cached.promise;
   return cached.conn;
 }
+
+// Add this export
+export async function isDBConnected() {
+  if (isBuildTime) return false;
+  try {
+    const conn = await connectDB();
+    return conn !== null && conn.connection.readyState === 1;
+  } catch (error) {
+    return false;
+  }
+}
