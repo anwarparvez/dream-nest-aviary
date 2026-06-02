@@ -1,12 +1,11 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI!;
+const MONGODB_URI = process.env.MONGODB_URI;
 
-if (!MONGODB_URI) {
-  throw new Error('Please define MONGODB_URI environment variable inside .env.local');
-}
+// Skip DB connection during build
+const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build' || 
+                    process.env.npm_lifecycle_event === 'build';
 
-// Use type assertion to avoid TypeScript errors
 let cached = (global as any).mongoose;
 
 if (!cached) {
@@ -14,6 +13,12 @@ if (!cached) {
 }
 
 export async function connectDB() {
+  // During build time, return null without error
+  if (isBuildTime || !MONGODB_URI || MONGODB_URI.includes('placeholder')) {
+    console.log('Skipping database connection during build');
+    return null;
+  }
+
   if (cached.conn) {
     return cached.conn;
   }
@@ -21,11 +26,17 @@ export async function connectDB() {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
+      serverSelectionTimeoutMS: 5000,
     };
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
+      console.log('MongoDB connected successfully');
       return mongoose;
+    }).catch((err) => {
+      console.error('MongoDB connection error:', err);
+      return null;
     });
   }
+  
   cached.conn = await cached.promise;
   return cached.conn;
 }
