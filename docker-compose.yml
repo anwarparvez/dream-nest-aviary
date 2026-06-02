@@ -21,9 +21,16 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 20s
 
   nextjs:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - MONGODB_URI=mongodb://${MONGO_USER}:${MONGO_PASS}@mongodb:27017/${MONGODB_DB_NAME}?authSource=admin
+        - NEXTAUTH_URL=${NEXTAUTH_URL}
+        - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
     container_name: dream-nest-app
     restart: always
     ports:
@@ -45,7 +52,7 @@ services:
       - internal-net
       - npm-net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -63,3 +70,4 @@ networks:
   npm-net:
     external: true
     name: nginx-pm_default
+    required: false  # Makes this network optional
