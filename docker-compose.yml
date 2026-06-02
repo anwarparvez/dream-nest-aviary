@@ -66,8 +66,7 @@ networks:
   internal-net:
     driver: bridge
     name: dream_nest_internal_net
-
+  
   npm-net:
     external: true
     name: nginx-pm_default
-    required: false  # Makes this network optional
