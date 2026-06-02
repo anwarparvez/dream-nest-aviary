@@ -1,0 +1,65 @@
+version: "3.8"
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: dream-nest-mongodb
+    restart: always
+    ports:
+      - "27019:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS}
+      MONGO_INITDB_DATABASE: ${MONGODB_DB_NAME}
+    volumes:
+      - dream_nest_mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - internal-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nextjs:
+    build: .
+    container_name: dream-nest-app
+    restart: always
+    ports:
+      - "3001:3000"
+    environment:
+      NODE_ENV: production
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      MONGODB_URI: mongodb://${MONGO_USER}:${MONGO_PASS}@mongodb:27017/${MONGODB_DB_NAME}?authSource=admin
+      MONGODB_DB_NAME: ${MONGODB_DB_NAME}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      NEXT_PUBLIC_APP_URL: ${NEXTAUTH_URL}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - internal-net
+      - npm-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  dream_nest_mongodb_data:
+    name: dream_nest_mongodb_data
+
+networks:
+  internal-net:
+    driver: bridge
+    name: dream_nest_internal_net
+
+  npm-net:
+    external: true
+    name: nginx-pm_default
