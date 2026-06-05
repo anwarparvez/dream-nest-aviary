@@ -46,22 +46,29 @@ import {
   Image as ImageIcon,
   Egg,
   Loader2,
+  TrendingUp,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 type ProjectType = 'Pigeon' | 'Chicken' | 'Mixed';
+type IncomeModel = 'pair_breeding' | 'egg_production' | 'growing' | 'mixed';
 type ProjectStatus = 'active' | 'completed' | 'archived';
 
 interface Project {
   _id: string;
   name: string;
   type: ProjectType;
+  incomeModel: IncomeModel;
   startDate: string;
-  targetPairCount: number;
+  targetCount: number;
   status: ProjectStatus;
   notes?: string;
-  pairCount: number;
+  pairCount?: number;
+  birdCount?: number;
+  totalIncome?: number;
+  totalExpense?: number;
+  profit?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -78,6 +85,21 @@ interface Pair {
   images: string[];
 }
 
+interface Bird {
+  _id: string;
+  birdNumber: string;
+  species: string;
+  breed: string;
+  name: string;
+  age?: string;
+  color?: string;
+  purchaseDate: string;
+  purchasePrice: number;
+  status: 'active' | 'sold';
+  notes?: string;
+  images: string[];
+}
+
 interface Expense {
   _id: string;
   date: string;
@@ -86,21 +108,37 @@ interface Expense {
   note?: string;
 }
 
+interface Income {
+  _id: string;
+  source: 'egg_sales' | 'bird_sales' | 'other';
+  date: string;
+  amount: number;
+  quantity: number;
+  unitPrice: number;
+  description?: string;
+  notes?: string;
+}
+
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [pairs, setPairs] = useState<Pair[]>([]);
+  const [birds, setBirds] = useState<Bird[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [incomes, setIncomes] = useState<Income[]>([]);
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [addPairDialogOpen, setAddPairDialogOpen] = useState(false);
+  const [addBirdDialogOpen, setAddBirdDialogOpen] = useState(false);
   const [addExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
+  const [addIncomeDialogOpen, setAddIncomeDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [editFormData, setEditFormData] = useState({
     name: '',
     type: 'Pigeon' as ProjectType,
-    targetPairCount: 0,
+    incomeModel: 'pair_breeding' as IncomeModel,
+    targetCount: 0,
     status: 'active' as ProjectStatus,
     notes: '',
   });
@@ -114,11 +152,31 @@ export default function ProjectDetailPage() {
     purchaseDate: '',
     status: 'active' as const,
   });
+  const [birdFormData, setBirdFormData] = useState({
+    birdNumber: '',
+    breed: '',
+    name: '',
+    age: '',
+    color: '',
+    purchasePrice: 0,
+    purchaseDate: '',
+    status: 'active' as const,
+    notes: '',
+  });
   const [expenseFormData, setExpenseFormData] = useState({
     category: 'Feed',
     amount: 0,
     date: '',
     note: '',
+  });
+  const [incomeFormData, setIncomeFormData] = useState({
+    source: 'bird_sales' as 'egg_sales' | 'bird_sales' | 'other',
+    amount: 0,
+    quantity: 1,
+    unitPrice: 0,
+    date: '',
+    description: '',
+    notes: '',
   });
 
   useEffect(() => {
@@ -127,23 +185,30 @@ export default function ProjectDetailPage() {
 
   const fetchProjectData = async () => {
     try {
-      const [projectRes, pairsRes, expensesRes] = await Promise.all([
+      const [projectRes, pairsRes, birdsRes, expensesRes, incomesRes] = await Promise.all([
         fetch(`/api/projects/${params.id}`),
         fetch(`/api/pairs?projectId=${params.id}`),
+        fetch(`/api/birds?projectId=${params.id}`),
         fetch(`/api/expenses?projectId=${params.id}`),
+        fetch(`/api/income?projectId=${params.id}`),
       ]);
 
       const projectData = await projectRes.json();
       const pairsData = await pairsRes.json();
+      const birdsData = await birdsRes.json();
       const expensesData = await expensesRes.json();
+      const incomesData = await incomesRes.json();
 
       setProject(projectData);
       setPairs(Array.isArray(pairsData) ? pairsData : []);
+      setBirds(Array.isArray(birdsData) ? birdsData : []);
       setExpenses(Array.isArray(expensesData) ? expensesData : []);
+      setIncomes(Array.isArray(incomesData) ? incomesData : []);
       setEditFormData({
         name: projectData.name,
         type: projectData.type,
-        targetPairCount: projectData.targetPairCount,
+        incomeModel: projectData.incomeModel || 'pair_breeding',
+        targetCount: projectData.targetCount || projectData.targetPairCount || 0,
         status: projectData.status,
         notes: projectData.notes || '',
       });
@@ -182,7 +247,7 @@ export default function ProjectDetailPage() {
   };
 
   const handleDeleteProject = async () => {
-    if (confirm('Are you sure you want to delete this project? This will also delete all associated pairs and expenses.')) {
+    if (confirm('Are you sure you want to delete this project? This will also delete all associated data.')) {
       try {
         const response = await fetch(`/api/projects/${params.id}`, {
           method: 'DELETE',
@@ -237,6 +302,43 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleAddBird = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const response = await fetch('/api/birds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...birdFormData, projectId: params.id }),
+      });
+
+      if (response.ok) {
+        toast.success('Bird added successfully');
+        setAddBirdDialogOpen(false);
+        setBirdFormData({
+          birdNumber: '',
+          breed: '',
+          name: '',
+          age: '',
+          color: '',
+          purchasePrice: 0,
+          purchaseDate: '',
+          status: 'active',
+          notes: '',
+        });
+        fetchProjectData();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to add bird');
+      }
+    } catch (error) {
+      console.error('Failed to add bird:', error);
+      toast.error('Failed to add bird');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -269,6 +371,41 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleAddIncome = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const response = await fetch('/api/income', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...incomeFormData, projectId: params.id }),
+      });
+
+      if (response.ok) {
+        toast.success('Income added successfully');
+        setAddIncomeDialogOpen(false);
+        setIncomeFormData({
+          source: 'bird_sales',
+          amount: 0,
+          quantity: 1,
+          unitPrice: 0,
+          date: '',
+          description: '',
+          notes: '',
+        });
+        fetchProjectData();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Failed to add income');
+      }
+    } catch (error) {
+      console.error('Failed to add income:', error);
+      toast.error('Failed to add income');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleDeletePair = async (pairId: string) => {
     if (confirm('Are you sure you want to delete this pair?')) {
       try {
@@ -285,6 +422,26 @@ export default function ProjectDetailPage() {
       } catch (error) {
         console.error('Failed to delete pair:', error);
         toast.error('Failed to delete pair');
+      }
+    }
+  };
+
+  const handleDeleteBird = async (birdId: string) => {
+    if (confirm('Are you sure you want to delete this bird?')) {
+      try {
+        const response = await fetch(`/api/birds/${birdId}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          toast.success('Bird deleted successfully');
+          fetchProjectData();
+        } else {
+          toast.error('Failed to delete bird');
+        }
+      } catch (error) {
+        console.error('Failed to delete bird:', error);
+        toast.error('Failed to delete bird');
       }
     }
   };
@@ -309,6 +466,26 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const handleDeleteIncome = async (incomeId: string) => {
+    if (confirm('Are you sure you want to delete this income record?')) {
+      try {
+        const response = await fetch(`/api/income/${incomeId}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          toast.success('Income deleted successfully');
+          fetchProjectData();
+        } else {
+          toast.error('Failed to delete income');
+        }
+      } catch (error) {
+        console.error('Failed to delete income:', error);
+        toast.error('Failed to delete income');
+      }
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -322,9 +499,32 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const getIncomeModelInfo = (model: IncomeModel) => {
+    switch (model) {
+      case 'pair_breeding':
+        return { text: 'Pair Breeding', icon: '🐦', description: 'Income from selling grown pigeons bred from pairs' };
+      case 'egg_production':
+        return { text: 'Egg Production', icon: '🥚', description: 'Income from selling eggs' };
+      case 'growing':
+        return { text: 'Growing', icon: '📈', description: 'Income from growing and selling chickens' };
+      case 'mixed':
+        return { text: 'Mixed Model', icon: '🔄', description: 'Multiple income sources' };
+      default:
+        return { text: 'Unknown', icon: '❓', description: '' };
+    }
+  };
+
   const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-  const averageCostPerPair = project?.pairCount ? totalExpenses / project.pairCount : 0;
-  const progress = project ? (project.pairCount / project.targetPairCount) * 100 : 0;
+  const totalIncome = incomes.reduce((sum, inc) => sum + inc.amount, 0);
+  const profit = totalIncome - totalExpenses;
+  
+  const totalCount = project?.incomeModel === 'pair_breeding' ? pairs.length : birds.length;
+  const progress = project ? (totalCount / project.targetCount) * 100 : 0;
+  const incomeInfo = project ? getIncomeModelInfo(project.incomeModel) : { text: '', icon: '', description: '' };
+
+  const isPairBreeding = project?.incomeModel === 'pair_breeding';
+  const isEggProduction = project?.incomeModel === 'egg_production';
+  const isGrowing = project?.incomeModel === 'growing';
 
   if (loading) {
     return (
@@ -374,16 +574,22 @@ export default function ProjectDetailPage() {
               <Badge className={getStatusColor(project.status)}>
                 {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
               </Badge>
+              <Badge variant="outline" className="gap-1">
+                <span>{incomeInfo.icon}</span> {incomeInfo.text}
+              </Badge>
             </div>
             <p className="text-gray-600">Type: {project.type}</p>
+            <p className="text-sm text-gray-500 mt-1">{incomeInfo.description}</p>
           </div>
           <div className="flex gap-2">
             <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-              <DialogTrigger>
-                <Button variant="outline">
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit
-                </Button>
+              <DialogTrigger asChild>
+                <span>
+                  <Button variant="outline">
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit
+                  </Button>
+                </span>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
@@ -400,11 +606,11 @@ export default function ProjectDetailPage() {
                       />
                     </div>
                     <div>
-                      <Label>Target Pair Count</Label>
+                      <Label>Target {isEggProduction ? 'Eggs/Day' : isGrowing ? 'Birds' : 'Pairs'}</Label>
                       <Input
                         type="number"
-                        value={editFormData.targetPairCount}
-                        onChange={(e) => setEditFormData({ ...editFormData, targetPairCount: parseInt(e.target.value) })}
+                        value={editFormData.targetCount}
+                        onChange={(e) => setEditFormData({ ...editFormData, targetCount: parseInt(e.target.value) })}
                         required
                       />
                     </div>
@@ -458,16 +664,22 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Pairs</p>
-                <p className="text-2xl font-bold">{project.pairCount || 0}</p>
-                <p className="text-xs text-gray-500">Target: {project.targetPairCount}</p>
+                <p className="text-sm text-gray-600">
+                  {isEggProduction ? 'Daily Egg Production' : isGrowing ? 'Total Birds' : 'Total Pairs'}
+                </p>
+                <p className="text-2xl font-bold">{totalCount}</p>
+                <p className="text-xs text-gray-500">Target: {project.targetCount}</p>
               </div>
-              <Bird className="h-8 w-8 text-emerald-600" />
+              {isEggProduction ? (
+                <Egg className="h-8 w-8 text-yellow-500" />
+              ) : (
+                <Bird className="h-8 w-8 text-emerald-600" />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -478,7 +690,6 @@ export default function ProjectDetailPage() {
               <div>
                 <p className="text-sm text-gray-600">Total Expenses</p>
                 <p className="text-2xl font-bold">${totalExpenses.toLocaleString()}</p>
-                <p className="text-xs text-gray-500">Avg ${averageCostPerPair.toFixed(2)}/pair</p>
               </div>
               <DollarSign className="h-8 w-8 text-red-500" />
             </div>
@@ -489,12 +700,28 @@ export default function ProjectDetailPage() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Start Date</p>
-                <p className="text-lg font-semibold">
-                  {format(new Date(project.startDate), 'MMM dd, yyyy')}
+                <p className="text-sm text-gray-600">Total Income</p>
+                <p className="text-2xl font-bold text-green-600">${totalIncome.toLocaleString()}</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Profit / Loss</p>
+                <p className={`text-2xl font-bold ${profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  ${profit.toLocaleString()}
                 </p>
               </div>
-              <Calendar className="h-8 w-8 text-blue-500" />
+              {profit >= 0 ? (
+                <TrendingUp className="h-8 w-8 text-emerald-600" />
+              ) : (
+                <TrendingUp className="h-8 w-8 text-red-600 transform rotate-180" />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -508,7 +735,7 @@ export default function ProjectDetailPage() {
                 <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                   <div 
                     className="bg-emerald-600 h-2 rounded-full transition-all"
-                    style={{ width: `${progress}%` }}
+                    style={{ width: `${Math.min(progress, 100)}%` }}
                   />
                 </div>
               </div>
@@ -520,314 +747,214 @@ export default function ProjectDetailPage() {
 
       {/* Tabs Section */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="pairs">Pairs ({pairs.length})</TabsTrigger>
+          <TabsTrigger value="inventory">
+            {isPairBreeding ? 'Pairs' : isEggProduction ? 'Egg Production' : 'Birds'} ({totalCount})
+          </TabsTrigger>
           <TabsTrigger value="expenses">Expenses ({expenses.length})</TabsTrigger>
+          <TabsTrigger value="income">Income ({incomes.length})</TabsTrigger>
           <TabsTrigger value="breeding">Breeding</TabsTrigger>
           <TabsTrigger value="gallery">Gallery</TabsTrigger>
         </TabsList>
 
+        {/* Overview Tab */}
         <TabsContent value="overview">
           <Card>
             <CardHeader>
               <CardTitle>Project Overview</CardTitle>
-              <CardDescription>
-                Key information about this project
-              </CardDescription>
+              <CardDescription>Key information about this project</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <h3 className="font-semibold mb-2">Project Details</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-600">Project Name:</p>
-                    <p className="font-medium">{project.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Project Type:</p>
-                    <p className="font-medium">{project.type}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Status:</p>
-                    <p className="font-medium capitalize">{project.status}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Created:</p>
-                    <p className="font-medium">{format(new Date(project.createdAt), 'PPP')}</p>
-                  </div>
+                  <div><p className="text-gray-600">Project Name:</p><p className="font-medium">{project.name}</p></div>
+                  <div><p className="text-gray-600">Project Type:</p><p className="font-medium">{project.type}</p></div>
+                  <div><p className="text-gray-600">Income Model:</p><p className="font-medium">{incomeInfo.text} {incomeInfo.icon}</p></div>
+                  <div><p className="text-gray-600">Status:</p><p className="font-medium capitalize">{project.status}</p></div>
+                  <div><p className="text-gray-600">Created:</p><p className="font-medium">{format(new Date(project.createdAt), 'PPP')}</p></div>
+                  <div><p className="text-gray-600">Start Date:</p><p className="font-medium">{format(new Date(project.startDate), 'PPP')}</p></div>
                 </div>
               </div>
               
               {project.notes && (
-                <div>
-                  <h3 className="font-semibold mb-2">Notes</h3>
-                  <p className="text-gray-600 whitespace-pre-wrap">{project.notes}</p>
-                </div>
+                <div><h3 className="font-semibold mb-2">Notes</h3><p className="text-gray-600 whitespace-pre-wrap">{project.notes}</p></div>
               )}
+
+              <div className="mt-4 pt-4 border-t">
+                <h3 className="font-semibold mb-2">Financial Summary</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">Total Expenses</p>
+                    <p className="text-xl font-bold text-red-600">${totalExpenses.toLocaleString()}</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-600">Total Income</p>
+                    <p className="text-xl font-bold text-green-600">${totalIncome.toLocaleString()}</p>
+                  </div>
+                  <div className={`p-3 rounded-lg ${profit >= 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                    <p className="text-sm text-gray-600">Net Profit</p>
+                    <p className={`text-xl font-bold ${profit >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>${profit.toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="pairs">
+        {/* Inventory Tab */}
+        <TabsContent value="inventory">
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
                 <div>
-                  <CardTitle>Bird Pairs</CardTitle>
+                  <CardTitle>
+                    {isPairBreeding ? 'Breeding Pairs' : isEggProduction ? 'Egg Production' : 'Birds'}
+                  </CardTitle>
                   <CardDescription>
-                    Manage all pairs in this project
+                    {isPairBreeding 
+                      ? 'Manage all breeding pairs in this project'
+                      : isEggProduction 
+                        ? 'Track egg production and sales'
+                        : 'Manage all birds in this project'}
                   </CardDescription>
                 </div>
-                <Dialog open={addPairDialogOpen} onOpenChange={setAddPairDialogOpen}>
-                  <DialogTrigger>
-                    <Button className="bg-emerald-600 hover:bg-emerald-700">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Pair
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add New Pair</DialogTitle>
-                      <DialogDescription>
-                        Fill in the details to add a new bird pair.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleAddPair}>
-                      <div className="space-y-4 py-4">
-                        <div>
-                          <Label>Pair Number *</Label>
-                          <Input
-                            value={pairFormData.pairNumber}
-                            onChange={(e) => setPairFormData({ ...pairFormData, pairNumber: e.target.value })}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label>Species *</Label>
-                          <Select
-                            value={pairFormData.species}
-                            onValueChange={(value: any) => setPairFormData({ ...pairFormData, species: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Pigeon">Pigeon</SelectItem>
-                              <SelectItem value="Chicken">Chicken</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>Breed *</Label>
-                          <Input
-                            value={pairFormData.breed}
-                            onChange={(e) => setPairFormData({ ...pairFormData, breed: e.target.value })}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label>Male Name *</Label>
-                          <Input
-                            value={pairFormData.maleName}
-                            onChange={(e) => setPairFormData({ ...pairFormData, maleName: e.target.value })}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label>Female Name *</Label>
-                          <Input
-                            value={pairFormData.femaleName}
-                            onChange={(e) => setPairFormData({ ...pairFormData, femaleName: e.target.value })}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label>Purchase Date *</Label>
-                          <Input
-                            type="date"
-                            value={pairFormData.purchaseDate}
-                            onChange={(e) => setPairFormData({ ...pairFormData, purchaseDate: e.target.value })}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label>Purchase Price *</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={pairFormData.purchasePrice}
-                            onChange={(e) => setPairFormData({ ...pairFormData, purchasePrice: parseFloat(e.target.value) })}
-                            required
-                          />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setAddPairDialogOpen(false)}>
-                          Cancel
+                {!isEggProduction && (
+                  <Dialog open={isPairBreeding ? addPairDialogOpen : addBirdDialogOpen} onOpenChange={isPairBreeding ? setAddPairDialogOpen : setAddBirdDialogOpen}>
+                    <DialogTrigger asChild>
+                      <span>
+                        <Button className="bg-emerald-600 hover:bg-emerald-700">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add {isPairBreeding ? 'Pair' : 'Bird'}
                         </Button>
-                        <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={submitting}>
-                          {submitting ? 'Adding...' : 'Add Pair'}
-                        </Button>
-                      </DialogFooter>
-                    </form>
-                  </DialogContent>
-                </Dialog>
+                      </span>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Add New {isPairBreeding ? 'Pair' : 'Bird'}</DialogTitle>
+                        <DialogDescription>
+                          Fill in the details to add a new {isPairBreeding ? 'breeding pair' : 'bird'}.
+                        </DialogDescription>
+                      </DialogHeader>
+                      {isPairBreeding ? (
+                        <form onSubmit={handleAddPair}>
+                          <div className="space-y-4 py-4">
+                            <div><Label>Pair Number *</Label><Input value={pairFormData.pairNumber} onChange={(e) => setPairFormData({ ...pairFormData, pairNumber: e.target.value })} required /></div>
+                            <div><Label>Species *</Label><Select value={pairFormData.species} onValueChange={(value: any) => setPairFormData({ ...pairFormData, species: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Pigeon">Pigeon</SelectItem><SelectItem value="Chicken">Chicken</SelectItem></SelectContent></Select></div>
+                            <div><Label>Breed *</Label><Input value={pairFormData.breed} onChange={(e) => setPairFormData({ ...pairFormData, breed: e.target.value })} required /></div>
+                            <div><Label>Male Name *</Label><Input value={pairFormData.maleName} onChange={(e) => setPairFormData({ ...pairFormData, maleName: e.target.value })} required /></div>
+                            <div><Label>Female Name *</Label><Input value={pairFormData.femaleName} onChange={(e) => setPairFormData({ ...pairFormData, femaleName: e.target.value })} required /></div>
+                            <div><Label>Purchase Date *</Label><Input type="date" value={pairFormData.purchaseDate} onChange={(e) => setPairFormData({ ...pairFormData, purchaseDate: e.target.value })} required /></div>
+                            <div><Label>Purchase Price *</Label><Input type="number" step="0.01" value={pairFormData.purchasePrice} onChange={(e) => setPairFormData({ ...pairFormData, purchasePrice: parseFloat(e.target.value) })} required /></div>
+                          </div>
+                          <DialogFooter><Button type="button" variant="outline" onClick={() => setAddPairDialogOpen(false)}>Cancel</Button><Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={submitting}>{submitting ? 'Adding...' : 'Add Pair'}</Button></DialogFooter>
+                        </form>
+                      ) : (
+                        <form onSubmit={handleAddBird}>
+                          <div className="space-y-4 py-4">
+                            <div><Label>Bird Number *</Label><Input value={birdFormData.birdNumber} onChange={(e) => setBirdFormData({ ...birdFormData, birdNumber: e.target.value })} required /></div>
+                            <div><Label>Name *</Label><Input value={birdFormData.name} onChange={(e) => setBirdFormData({ ...birdFormData, name: e.target.value })} required /></div>
+                            <div><Label>Breed *</Label><Input value={birdFormData.breed} onChange={(e) => setBirdFormData({ ...birdFormData, breed: e.target.value })} required /></div>
+                            <div><Label>Age</Label><Input value={birdFormData.age} onChange={(e) => setBirdFormData({ ...birdFormData, age: e.target.value })} placeholder="e.g., 6 months" /></div>
+                            <div><Label>Color</Label><Input value={birdFormData.color} onChange={(e) => setBirdFormData({ ...birdFormData, color: e.target.value })} placeholder="White, Black, etc." /></div>
+                            <div><Label>Purchase Date *</Label><Input type="date" value={birdFormData.purchaseDate} onChange={(e) => setBirdFormData({ ...birdFormData, purchaseDate: e.target.value })} required /></div>
+                            <div><Label>Purchase Price *</Label><Input type="number" step="0.01" value={birdFormData.purchasePrice} onChange={(e) => setBirdFormData({ ...birdFormData, purchasePrice: parseFloat(e.target.value) })} required /></div>
+                            <div><Label>Notes</Label><Textarea value={birdFormData.notes} onChange={(e) => setBirdFormData({ ...birdFormData, notes: e.target.value })} rows={2} /></div>
+                          </div>
+                          <DialogFooter><Button type="button" variant="outline" onClick={() => setAddBirdDialogOpen(false)}>Cancel</Button><Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={submitting}>{submitting ? 'Adding...' : 'Add Bird'}</Button></DialogFooter>
+                        </form>
+                      )}
+                    </DialogContent>
+                  </Dialog>
+                )}
               </div>
             </CardHeader>
             <CardContent>
-              {pairs.length === 0 ? (
+              {isEggProduction ? (
                 <div className="text-center py-8">
-                  <Bird className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-500">No pairs added yet</p>
-                  <Button
-                    variant="outline"
-                    onClick={() => setAddPairDialogOpen(true)}
-                    className="mt-4"
-                  >
+                  <Egg className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+                  <p className="text-gray-500">Track egg production from this project</p>
+                  <p className="text-sm text-gray-400 mt-2">Use the Income tab to record egg sales</p>
+                  <Button variant="outline" onClick={() => setAddIncomeDialogOpen(true)} className="mt-4">
                     <Plus className="mr-2 h-4 w-4" />
-                    Add Your First Pair
+                    Record Egg Sale
                   </Button>
                 </div>
+              ) : isPairBreeding ? (
+                pairs.length === 0 ? (
+                  <div className="text-center py-8"><Bird className="h-12 w-12 text-gray-400 mx-auto mb-3" /><p className="text-gray-500">No pairs added yet</p><Button variant="outline" onClick={() => setAddPairDialogOpen(true)} className="mt-4"><Plus className="mr-2 h-4 w-4" />Add Your First Pair</Button></div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader><TableRow><TableHead>Pair #</TableHead><TableHead>Species</TableHead><TableHead>Breed</TableHead><TableHead>Male</TableHead><TableHead>Female</TableHead><TableHead>Status</TableHead><TableHead>Purchase Price</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
+                      <TableBody>
+                        {pairs.map((pair) => (
+                          <TableRow key={pair._id}>
+                            <TableCell className="font-medium">{pair.pairNumber}</TableCell>
+                            <TableCell>{pair.species}</TableCell><TableCell>{pair.breed}</TableCell>
+                            <TableCell>{pair.maleName}</TableCell><TableCell>{pair.femaleName}</TableCell>
+                            <TableCell><Badge variant="outline" className="capitalize">{pair.status}</Badge></TableCell>
+                            <TableCell>${pair.purchasePrice.toLocaleString()}</TableCell>
+                            <TableCell><div className="flex gap-2"><Button variant="ghost" size="sm" onClick={() => router.push(`/pairs/${pair._id}`)}>View Details</Button><Button variant="ghost" size="sm" onClick={() => handleDeletePair(pair._id)} className="text-red-600"><Trash2 className="h-4 w-4" /></Button></div></TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Pair #</TableHead>
-                        <TableHead>Species</TableHead>
-                        <TableHead>Breed</TableHead>
-                        <TableHead>Male</TableHead>
-                        <TableHead>Female</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Purchase Price</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {pairs.map((pair) => (
-                        <TableRow key={pair._id}>
-                          <TableCell className="font-medium">{pair.pairNumber}</TableCell>
-                          <TableCell>{pair.species}</TableCell>
-                          <TableCell>{pair.breed}</TableCell>
-                          <TableCell>{pair.maleName}</TableCell>
-                          <TableCell>{pair.femaleName}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="capitalize">
-                              {pair.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>${pair.purchasePrice.toLocaleString()}</TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => router.push(`/pairs/${pair._id}`)}
-                              >
-                                View Details
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeletePair(pair._id)}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                birds.length === 0 ? (
+                  <div className="text-center py-8"><Bird className="h-12 w-12 text-gray-400 mx-auto mb-3" /><p className="text-gray-500">No birds added yet</p><Button variant="outline" onClick={() => setAddBirdDialogOpen(true)} className="mt-4"><Plus className="mr-2 h-4 w-4" />Add Your First Bird</Button></div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader><TableRow><TableHead>Bird #</TableHead><TableHead>Name</TableHead><TableHead>Breed</TableHead><TableHead>Age</TableHead><TableHead>Color</TableHead><TableHead>Status</TableHead><TableHead>Purchase Price</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
+                      <TableBody>
+                        {birds.map((bird) => (
+                          <TableRow key={bird._id}>
+                            <TableCell className="font-medium">{bird.birdNumber}</TableCell>
+                            <TableCell>{bird.name}</TableCell><TableCell>{bird.breed}</TableCell>
+                            <TableCell>{bird.age || '-'}</TableCell><TableCell>{bird.color || '-'}</TableCell>
+                            <TableCell><Badge variant="outline" className="capitalize">{bird.status}</Badge></TableCell>
+                            <TableCell>${bird.purchasePrice.toLocaleString()}</TableCell>
+                            <TableCell><Button variant="ghost" size="sm" onClick={() => handleDeleteBird(bird._id)} className="text-red-600"><Trash2 className="h-4 w-4" /></Button></TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* Expenses Tab */}
         <TabsContent value="expenses">
           <Card>
             <CardHeader>
               <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle>Expenses</CardTitle>
-                  <CardDescription>
-                    Track all project expenses
-                  </CardDescription>
-                </div>
+                <div><CardTitle>Expenses</CardTitle><CardDescription>Track all project expenses</CardDescription></div>
                 <Dialog open={addExpenseDialogOpen} onOpenChange={setAddExpenseDialogOpen}>
-                  <DialogTrigger>
-                    <Button className="bg-emerald-600 hover:bg-emerald-700">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Expense
-                    </Button>
+                  <DialogTrigger asChild>
+                    <span>
+                      <Button className="bg-emerald-600 hover:bg-emerald-700">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Expense
+                      </Button>
+                    </span>
                   </DialogTrigger>
                   <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add Expense</DialogTitle>
-                      <DialogDescription>
-                        Fill in the details to add a new expense.
-                      </DialogDescription>
-                    </DialogHeader>
+                    <DialogHeader><DialogTitle>Add Expense</DialogTitle><DialogDescription>Fill in the details to add a new expense.</DialogDescription></DialogHeader>
                     <form onSubmit={handleAddExpense}>
                       <div className="space-y-4 py-4">
-                        <div>
-                          <Label>Category *</Label>
-                          <Select
-                            value={expenseFormData.category}
-                            onValueChange={(value: any) => setExpenseFormData({ ...expenseFormData, category: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Feed">Feed</SelectItem>
-                              <SelectItem value="Medicine">Medicine</SelectItem>
-                              <SelectItem value="Cage">Cage</SelectItem>
-                              <SelectItem value="Transport">Transport</SelectItem>
-                              <SelectItem value="Utility">Utility</SelectItem>
-                              <SelectItem value="Other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>Amount ($) *</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={expenseFormData.amount}
-                            onChange={(e) => setExpenseFormData({ ...expenseFormData, amount: parseFloat(e.target.value) })}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label>Date *</Label>
-                          <Input
-                            type="date"
-                            value={expenseFormData.date}
-                            onChange={(e) => setExpenseFormData({ ...expenseFormData, date: e.target.value })}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label>Note</Label>
-                          <Textarea
-                            value={expenseFormData.note}
-                            onChange={(e) => setExpenseFormData({ ...expenseFormData, note: e.target.value })}
-                            rows={3}
-                          />
-                        </div>
+                        <div><Label>Category *</Label><Select value={expenseFormData.category} onValueChange={(value: any) => setExpenseFormData({ ...expenseFormData, category: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Feed">Feed</SelectItem><SelectItem value="Medicine">Medicine</SelectItem><SelectItem value="Cage">Cage</SelectItem><SelectItem value="Transport">Transport</SelectItem><SelectItem value="Utility">Utility</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select></div>
+                        <div><Label>Amount ($) *</Label><Input type="number" step="0.01" value={expenseFormData.amount} onChange={(e) => setExpenseFormData({ ...expenseFormData, amount: parseFloat(e.target.value) })} required /></div>
+                        <div><Label>Date *</Label><Input type="date" value={expenseFormData.date} onChange={(e) => setExpenseFormData({ ...expenseFormData, date: e.target.value })} required /></div>
+                        <div><Label>Note</Label><Textarea value={expenseFormData.note} onChange={(e) => setExpenseFormData({ ...expenseFormData, note: e.target.value })} rows={3} /></div>
                       </div>
-                      <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => setAddExpenseDialogOpen(false)}>
-                          Cancel
-                        </Button>
-                        <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={submitting}>
-                          {submitting ? 'Adding...' : 'Add Expense'}
-                        </Button>
-                      </DialogFooter>
+                      <DialogFooter><Button type="button" variant="outline" onClick={() => setAddExpenseDialogOpen(false)}>Cancel</Button><Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={submitting}>{submitting ? 'Adding...' : 'Add Expense'}</Button></DialogFooter>
                     </form>
                   </DialogContent>
                 </Dialog>
@@ -835,49 +962,19 @@ export default function ProjectDetailPage() {
             </CardHeader>
             <CardContent>
               {expenses.length === 0 ? (
-                <div className="text-center py-8">
-                  <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-500">No expenses recorded yet</p>
-                  <Button
-                    variant="outline"
-                    onClick={() => setAddExpenseDialogOpen(true)}
-                    className="mt-4"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add First Expense
-                  </Button>
-                </div>
+                <div className="text-center py-8"><DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-3" /><p className="text-gray-500">No expenses recorded yet</p><Button variant="outline" onClick={() => setAddExpenseDialogOpen(true)} className="mt-4"><Plus className="mr-2 h-4 w-4" />Add First Expense</Button></div>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Note</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                    <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Category</TableHead><TableHead>Amount</TableHead><TableHead>Note</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
                     <TableBody>
                       {expenses.map((expense) => (
                         <TableRow key={expense._id}>
                           <TableCell>{format(new Date(expense.date), 'MMM dd, yyyy')}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{expense.category}</Badge>
-                          </TableCell>
+                          <TableCell><Badge variant="secondary">{expense.category}</Badge></TableCell>
                           <TableCell>${expense.amount.toLocaleString()}</TableCell>
                           <TableCell>{expense.note || '-'}</TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteExpense(expense._id)}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
+                          <TableCell><Button variant="ghost" size="sm" onClick={() => handleDeleteExpense(expense._id)} className="text-red-600"><Trash2 className="h-4 w-4" /></Button></TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -888,43 +985,85 @@ export default function ProjectDetailPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="breeding">
+        {/* Income Tab */}
+        <TabsContent value="income">
           <Card>
             <CardHeader>
-              <CardTitle>Breeding Records</CardTitle>
-              <CardDescription>
-                Track breeding success and hatch rates
-              </CardDescription>
+              <div className="flex justify-between items-center">
+                <div><CardTitle>Income Records</CardTitle><CardDescription>Track all income from this project</CardDescription></div>
+                <Dialog open={addIncomeDialogOpen} onOpenChange={setAddIncomeDialogOpen}>
+                  <DialogTrigger asChild>
+                    <span>
+                      <Button className="bg-emerald-600 hover:bg-emerald-700">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Income
+                      </Button>
+                    </span>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader><DialogTitle>Add Income</DialogTitle><DialogDescription>Record income from sales or other sources.</DialogDescription></DialogHeader>
+                    <form onSubmit={handleAddIncome}>
+                      <div className="space-y-4 py-4">
+                        <div><Label>Source *</Label><Select value={incomeFormData.source} onValueChange={(value: any) => setIncomeFormData({ ...incomeFormData, source: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="bird_sales">🦜 Bird Sales</SelectItem><SelectItem value="egg_sales">🥚 Egg Sales</SelectItem><SelectItem value="other">💰 Other</SelectItem></SelectContent></Select></div>
+                        <div><Label>Quantity *</Label><Input type="number" min="1" value={incomeFormData.quantity} onChange={(e) => setIncomeFormData({ ...incomeFormData, quantity: parseInt(e.target.value) })} required /></div>
+                        <div><Label>Unit Price ($) *</Label><Input type="number" step="0.01" value={incomeFormData.unitPrice} onChange={(e) => setIncomeFormData({ ...incomeFormData, unitPrice: parseFloat(e.target.value) })} required /></div>
+                        <div><Label>Total Amount ($) *</Label><Input type="number" step="0.01" value={incomeFormData.amount} onChange={(e) => setIncomeFormData({ ...incomeFormData, amount: parseFloat(e.target.value) })} required /></div>
+                        <div><Label>Date *</Label><Input type="date" value={incomeFormData.date} onChange={(e) => setIncomeFormData({ ...incomeFormData, date: e.target.value })} required /></div>
+                        <div><Label>Description</Label><Input value={incomeFormData.description} onChange={(e) => setIncomeFormData({ ...incomeFormData, description: e.target.value })} placeholder="Sale of 10 pigeons" /></div>
+                        <div><Label>Notes</Label><Textarea value={incomeFormData.notes} onChange={(e) => setIncomeFormData({ ...incomeFormData, notes: e.target.value })} rows={2} /></div>
+                      </div>
+                      <DialogFooter><Button type="button" variant="outline" onClick={() => setAddIncomeDialogOpen(false)}>Cancel</Button><Button type="submit" className="bg-emerald-600 hover:bg-emerald-700" disabled={submitting}>{submitting ? 'Adding...' : 'Add Income'}</Button></DialogFooter>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8">
-                <Egg className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500">Breeding records will appear here</p>
-                <p className="text-sm text-gray-400 mt-2">
-                  Add breeding records from individual pair pages
-                </p>
-              </div>
+              {incomes.length === 0 ? (
+                <div className="text-center py-8"><TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-3" /><p className="text-gray-500">No income recorded yet</p><Button variant="outline" onClick={() => setAddIncomeDialogOpen(true)} className="mt-4"><Plus className="mr-2 h-4 w-4" />Add First Income</Button></div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Source</TableHead><TableHead>Quantity</TableHead><TableHead>Unit Price</TableHead><TableHead>Amount</TableHead><TableHead>Description</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                      {incomes.map((income) => (
+                        <TableRow key={income._id}>
+                          <TableCell>{format(new Date(income.date), 'MMM dd, yyyy')}</TableCell>
+                          <TableCell><Badge variant="outline">{income.source === 'bird_sales' ? '🦜 Bird Sales' : income.source === 'egg_sales' ? '🥚 Egg Sales' : '💰 Other'}</Badge></TableCell>
+                          <TableCell>{income.quantity}</TableCell>
+                          <TableCell>${income.unitPrice.toFixed(2)}</TableCell>
+                          <TableCell className="font-medium text-green-600">${income.amount.toLocaleString()}</TableCell>
+                          <TableCell>{income.description || '-'}</TableCell>
+                          <TableCell><Button variant="ghost" size="sm" onClick={() => handleDeleteIncome(income._id)} className="text-red-600"><Trash2 className="h-4 w-4" /></Button></TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* Breeding Tab */}
+        <TabsContent value="breeding">
+          <Card>
+            <CardHeader><CardTitle>Breeding Records</CardTitle><CardDescription>Track breeding success and hatch rates</CardDescription></CardHeader>
+            <CardContent>
+              {isPairBreeding ? (
+                <div className="text-center py-8"><Egg className="h-12 w-12 text-gray-400 mx-auto mb-3" /><p className="text-gray-500">Breeding records will appear here</p><p className="text-sm text-gray-400 mt-2">Add breeding records from individual pair pages</p></div>
+              ) : (
+                <div className="text-center py-8"><Egg className="h-12 w-12 text-gray-400 mx-auto mb-3" /><p className="text-gray-500">Breeding records are only available for Pair Breeding projects</p><p className="text-sm text-gray-400 mt-2">This project uses {incomeInfo.text.toLowerCase()} model</p></div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Gallery Tab */}
         <TabsContent value="gallery">
           <Card>
-            <CardHeader>
-              <CardTitle>Photo Gallery</CardTitle>
-              <CardDescription>
-                Images and photos from this project
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                <p className="text-gray-500">Gallery coming soon</p>
-                <p className="text-sm text-gray-400 mt-2">
-                  Upload and manage photos from pair pages
-                </p>
-              </div>
-            </CardContent>
+            <CardHeader><CardTitle>Photo Gallery</CardTitle><CardDescription>Images and photos from this project</CardDescription></CardHeader>
+            <CardContent><div className="text-center py-8"><ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" /><p className="text-gray-500">Gallery coming soon</p><p className="text-sm text-gray-400 mt-2">Upload and manage photos from this project</p></div></CardContent>
           </Card>
         </TabsContent>
       </Tabs>

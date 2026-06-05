@@ -15,7 +15,7 @@ export function Header() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
-  // Get page title from pathname - Fixed: handle undefined path
+  // Get page title from pathname - Updated with new pages
   const getPageTitle = () => {
     if (!pathname) return 'Dashboard';
     const path = pathname.split('/')[1];
@@ -23,12 +23,14 @@ export function Header() {
       dashboard: 'Dashboard',
       projects: 'Projects',
       pairs: 'Bird Pairs',
+      birds: 'Birds Management',
+      inventory: 'Inventory Management',
+      income: 'Income Tracking',
       gallery: 'Photo Gallery',
       expenses: 'Expenses',
       reports: 'Reports',
       settings: 'Settings',
     };
-    // Safe access with fallback
     return path && titles[path] ? titles[path] : 'Dashboard';
   };
 
@@ -105,7 +107,7 @@ export function Header() {
             <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
           </Button>
 
-          {/* Simple Dropdown without shadcn */}
+          {/* User Menu Dropdown */}
           <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}

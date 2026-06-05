@@ -5,6 +5,7 @@ import { connectDB } from '@/lib/db/mongodb';
 import Project from '@/lib/db/models/Project';
 import Pair from '@/lib/db/models/Pair';
 import Expense from '@/lib/db/models/Expense';
+import Income from '@/lib/db/models/Income';
 
 // GET /api/projects/[id] - Get a single project
 export async function GET(
@@ -21,8 +22,11 @@ export async function GET(
     const { id } = await params;
     await connectDB();
     
-    // Cast model to any to avoid TypeScript issues
     const ProjectModel = Project as any;
+    const PairModel = Pair as any;
+    const ExpenseModel = Expense as any;
+    const IncomeModel = Income as any;
+    
     const project = await ProjectModel.findById(id).lean();
     
     if (!project) {
@@ -30,8 +34,21 @@ export async function GET(
     }
     
     // Get pair count
-    const PairModel = Pair as any;
     const pairCount = await PairModel.countDocuments({ projectId: id });
+    
+    // Get financial summary
+    const totalExpensesResult = await ExpenseModel.aggregate([
+      { $match: { projectId: id } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    
+    const totalIncomeResult = await IncomeModel.aggregate([
+      { $match: { projectId: id } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    
+    const totalExpenses = totalExpensesResult[0]?.total || 0;
+    const totalIncome = totalIncomeResult[0]?.total || 0;
     
     const projectAny = project as any;
     
@@ -39,13 +56,17 @@ export async function GET(
       _id: projectAny._id?.toString() || '',
       name: projectAny.name || '',
       type: projectAny.type || '',
+      incomeModel: projectAny.incomeModel || 'pair_breeding',
       startDate: projectAny.startDate?.toISOString(),
-      targetPairCount: projectAny.targetPairCount || 0,
+      targetCount: projectAny.targetCount || projectAny.targetPairCount || 0,
       status: projectAny.status || 'active',
       notes: projectAny.notes || '',
       createdAt: projectAny.createdAt?.toISOString(),
       updatedAt: projectAny.updatedAt?.toISOString(),
       pairCount,
+      totalExpenses,
+      totalIncome,
+      profit: totalIncome - totalExpenses,
     });
   } catch (error) {
     console.error('Error fetching project:', error);
@@ -72,7 +93,6 @@ export async function PUT(
     const body = await request.json();
     await connectDB();
     
-    // Cast model to any to avoid TypeScript issues
     const ProjectModel = Project as any;
     
     const project = await ProjectModel.findByIdAndUpdate(
@@ -80,8 +100,9 @@ export async function PUT(
       {
         name: body.name,
         type: body.type,
+        incomeModel: body.incomeModel,
         startDate: body.startDate ? new Date(body.startDate) : new Date(),
-        targetPairCount: body.targetPairCount,
+        targetCount: body.targetCount,
         status: body.status,
         notes: body.notes || '',
         updatedAt: new Date(),
@@ -101,8 +122,9 @@ export async function PUT(
         _id: projectObj._id.toString(),
         name: projectObj.name,
         type: projectObj.type,
+        incomeModel: projectObj.incomeModel,
         startDate: projectObj.startDate?.toISOString(),
-        targetPairCount: projectObj.targetPairCount,
+        targetCount: projectObj.targetCount,
         status: projectObj.status,
         notes: projectObj.notes || '',
         createdAt: projectObj.createdAt?.toISOString(),
@@ -133,15 +155,15 @@ export async function DELETE(
     const { id } = await params;
     await connectDB();
     
-    // Cast models to any to avoid TypeScript issues
     const PairModel = Pair as any;
     const ExpenseModel = Expense as any;
+    const IncomeModel = Income as any;
     const ProjectModel = Project as any;
     
-    // Delete associated pairs and expenses
+    // Delete all associated data
     await PairModel.deleteMany({ projectId: id });
     await ExpenseModel.deleteMany({ projectId: id });
-    
+    await IncomeModel.deleteMany({ projectId: id });
     const project = await ProjectModel.findByIdAndDelete(id);
     
     if (!project) {

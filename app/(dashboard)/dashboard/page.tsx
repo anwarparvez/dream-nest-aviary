@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import {
   LineChart,
   Line,
@@ -22,9 +21,10 @@ import {
   TrendingUp,
   TrendingDown,
   Camera,
+  Loader2,
 } from 'lucide-react';
-import { format } from 'date-fns';
-import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 interface DashboardStats {
   totalProjects: number;
@@ -40,42 +40,67 @@ interface DashboardStats {
   breedingSuccessData: any[];
 }
 
-interface Project {
-  _id: string;
-  name: string;
-  type: string;
-  startDate: string;
-  targetPairCount: number;
-  status: string;
-  notes?: string;
-}
-
 export default function DashboardPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchDashboardStats();
-  }, []);
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchDashboardStats();
+    }
+  }, [session]);
 
   const fetchDashboardStats = async () => {
+    setLoading(true);
+    setError(null);
     try {
       const response = await fetch('/api/dashboard/stats');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
       setStats(data);
     } catch (error) {
       console.error('Failed to fetch dashboard stats:', error);
+      setError('Failed to load dashboard statistics');
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
+  if (status === 'loading' || loading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
-          <p className="mt-4 text-slate-600">Loading dashboard...</p>
+          <Loader2 className="h-12 w-12 animate-spin text-emerald-600 mx-auto" />
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={fetchDashboardStats}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
+          >
+            Try Again
+          </button>
         </div>
       </div>
     );
@@ -175,7 +200,7 @@ export default function DashboardPage() {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="amount" stroke="#ef4444" />
+                <Line type="monotone" dataKey="amount" stroke="#ef4444" name="Expenses" />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -193,7 +218,7 @@ export default function DashboardPage() {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="amount" stroke="#10b981" />
+                <Line type="monotone" dataKey="amount" stroke="#10b981" name="Income" />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>

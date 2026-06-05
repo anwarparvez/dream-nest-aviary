@@ -3,8 +3,9 @@ import mongoose from 'mongoose';
 export interface IProject {
   name: string;
   type: 'Pigeon' | 'Chicken' | 'Mixed';
+  incomeModel: 'pair_breeding' | 'egg_production' | 'growing' | 'mixed';
   startDate: Date;
-  targetPairCount: number;
+  targetCount: number; // pairs for pigeon, egg production target or bird count
   status: 'active' | 'completed' | 'archived';
   notes?: string;
   createdBy: mongoose.Types.ObjectId;
@@ -23,13 +24,18 @@ const ProjectSchema = new mongoose.Schema<IProject>({
     enum: ['Pigeon', 'Chicken', 'Mixed'],
     required: [true, 'Project type is required'],
   },
+  incomeModel: {
+    type: String,
+    enum: ['pair_breeding', 'egg_production', 'growing', 'mixed'],
+    required: [true, 'Income model is required'],
+  },
   startDate: {
     type: Date,
     required: [true, 'Start date is required'],
   },
-  targetPairCount: {
+  targetCount: {
     type: Number,
-    required: [true, 'Target pair count is required'],
+    required: [true, 'Target count is required'],
     min: 1,
   },
   status: {

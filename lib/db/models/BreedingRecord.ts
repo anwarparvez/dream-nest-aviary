@@ -7,6 +7,7 @@ export interface IBreedingRecord {
   hatchDate?: Date;
   chickCount?: number;
   chickStatus?: string;
+  inventoryAdded: boolean; // Track if chicks added to inventory
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -27,21 +28,17 @@ const BreedingRecordSchema = new mongoose.Schema<IBreedingRecord>({
     required: [true, 'Egg count is required'],
     min: 1,
   },
-  hatchDate: {
-    type: Date,
-  },
+  hatchDate: Date,
   chickCount: {
     type: Number,
     min: 0,
   },
-  chickStatus: {
-    type: String,
-    trim: true,
+  chickStatus: String,
+  inventoryAdded: {
+    type: Boolean,
+    default: false,
   },
-  notes: {
-    type: String,
-    trim: true,
-  },
+  notes: String,
   createdAt: {
     type: Date,
     default: Date.now,

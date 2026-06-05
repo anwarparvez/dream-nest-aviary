@@ -29,23 +29,28 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2, Eye } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
 type ProjectType = 'Pigeon' | 'Chicken' | 'Mixed';
+type IncomeModel = 'pair_breeding' | 'egg_production' | 'growing' | 'mixed';
 type ProjectStatus = 'active' | 'completed' | 'archived';
 
 interface Project {
   _id: string;
   name: string;
   type: ProjectType;
+  incomeModel: IncomeModel;
   startDate: string;
-  targetPairCount: number;
+  targetCount: number;
   status: ProjectStatus;
   notes?: string;
   pairCount?: number;
+  totalIncome?: number;
+  totalExpense?: number;
+  profit?: number;
   createdAt: string;
 }
 
@@ -63,6 +68,22 @@ const formatDateForInput = (dateString: string | undefined | null): string => {
   }
 };
 
+// Get income model display text and icon
+const getIncomeModelInfo = (model: IncomeModel) => {
+  switch (model) {
+    case 'pair_breeding':
+      return { text: 'Pair Breeding', icon: '🐦', description: 'Income from selling grown pigeons bred from pairs' };
+    case 'egg_production':
+      return { text: 'Egg Production', icon: '🥚', description: 'Income from selling eggs' };
+    case 'growing':
+      return { text: 'Growing', icon: '📈', description: 'Income from growing and selling chickens' };
+    case 'mixed':
+      return { text: 'Mixed Model', icon: '🔄', description: 'Multiple income sources' };
+    default:
+      return { text: 'Unknown', icon: '❓', description: '' };
+  }
+};
+
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,8 +93,9 @@ export default function ProjectsPage() {
   const [formData, setFormData] = useState({
     name: '',
     type: 'Pigeon' as ProjectType,
+    incomeModel: 'pair_breeding' as IncomeModel,
     startDate: '',
-    targetPairCount: 1,
+    targetCount: 1,
     status: 'active' as ProjectStatus,
     notes: '',
   });
@@ -104,7 +126,6 @@ export default function ProjectsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate form
     if (!formData.name.trim()) {
       toast.error('Project name is required');
       return;
@@ -113,8 +134,8 @@ export default function ProjectsPage() {
       toast.error('Start date is required');
       return;
     }
-    if (formData.targetPairCount < 1) {
-      toast.error('Target pair count must be at least 1');
+    if (formData.targetCount < 1) {
+      toast.error('Target count must be at least 1');
       return;
     }
     
@@ -129,8 +150,9 @@ export default function ProjectsPage() {
           body: JSON.stringify({
             name: formData.name,
             type: formData.type,
+            incomeModel: formData.incomeModel,
             startDate: formData.startDate,
-            targetPairCount: formData.targetPairCount,
+            targetCount: formData.targetCount,
             status: formData.status,
             notes: formData.notes,
           }),
@@ -154,7 +176,7 @@ export default function ProjectsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this project? This will also delete all associated pairs and expenses.')) {
+    if (confirm('Are you sure you want to delete this project? This will also delete all associated data.')) {
       startTransition(async () => {
         try {
           const response = await fetch(`/api/projects/${id}`, {
@@ -181,8 +203,9 @@ export default function ProjectsPage() {
     setFormData({
       name: project.name,
       type: project.type,
+      incomeModel: project.incomeModel,
       startDate: formatDateForInput(project.startDate),
-      targetPairCount: project.targetPairCount,
+      targetCount: project.targetCount,
       status: project.status,
       notes: project.notes || '',
     });
@@ -194,8 +217,9 @@ export default function ProjectsPage() {
     setFormData({
       name: '',
       type: 'Pigeon',
+      incomeModel: 'pair_breeding',
       startDate: '',
-      targetPairCount: 1,
+      targetCount: 1,
       status: 'active',
       notes: '',
     });
@@ -214,11 +238,26 @@ export default function ProjectsPage() {
     }
   };
 
+  const getTargetLabel = (incomeModel: IncomeModel) => {
+    switch (incomeModel) {
+      case 'pair_breeding':
+        return 'Target Pairs';
+      case 'egg_production':
+        return 'Target Eggs/Day';
+      case 'growing':
+        return 'Target Birds';
+      case 'mixed':
+        return 'Target Count';
+      default:
+        return 'Target Count';
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+          <Loader2 className="h-12 w-12 animate-spin text-emerald-600 mx-auto" />
           <p className="mt-4 text-gray-600">Loading projects...</p>
         </div>
       </div>
@@ -236,14 +275,17 @@ export default function ProjectsPage() {
           </p>
         </div>
         
+        {/* Fixed DialogTrigger - No nested buttons */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger>
-            <Button className="bg-emerald-600 hover:bg-emerald-700 cursor-pointer">
-              <Plus className="mr-2 h-4 w-4" />
-              New Project
-            </Button>
+          <DialogTrigger asChild>
+            <span>
+              <Button className="bg-emerald-600 hover:bg-emerald-700 cursor-pointer">
+                <Plus className="mr-2 h-4 w-4" />
+                New Project
+              </Button>
+            </span>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingProject ? 'Edit Project' : 'Create New Project'}</DialogTitle>
               <DialogDescription>
@@ -269,7 +311,14 @@ export default function ProjectsPage() {
                   <Label htmlFor="type">Project Type *</Label>
                   <Select
                     value={formData.type}
-                    onValueChange={(value: ProjectType) => setFormData({ ...formData, type: value })}
+                    onValueChange={(value: ProjectType) => {
+                      setFormData({ ...formData, type: value });
+                      if (value === 'Pigeon') {
+                        setFormData(prev => ({ ...prev, incomeModel: 'pair_breeding' }));
+                      } else if (value === 'Chicken') {
+                        setFormData(prev => ({ ...prev, incomeModel: 'egg_production' }));
+                      }
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select type" />
@@ -278,6 +327,24 @@ export default function ProjectsPage() {
                       <SelectItem value="Pigeon">🐦 Pigeon Project</SelectItem>
                       <SelectItem value="Chicken">🐔 Chicken Project</SelectItem>
                       <SelectItem value="Mixed">🦜 Mixed Project</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="incomeModel">Income Model *</Label>
+                  <Select
+                    value={formData.incomeModel}
+                    onValueChange={(value: IncomeModel) => setFormData({ ...formData, incomeModel: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select income model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pair_breeding">🐦 Pair Breeding - Sell grown pigeons</SelectItem>
+                      <SelectItem value="egg_production">🥚 Egg Production - Sell eggs</SelectItem>
+                      <SelectItem value="growing">📈 Growing - Grow and sell chickens</SelectItem>
+                      <SelectItem value="mixed">🔄 Mixed Model - Multiple sources</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -294,15 +361,21 @@ export default function ProjectsPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="targetPairCount">Target Pair Count *</Label>
+                  <Label htmlFor="targetCount">{getTargetLabel(formData.incomeModel)} *</Label>
                   <Input
-                    id="targetPairCount"
+                    id="targetCount"
                     type="number"
                     min="1"
-                    value={formData.targetPairCount}
-                    onChange={(e) => setFormData({ ...formData, targetPairCount: parseInt(e.target.value) })}
+                    value={formData.targetCount}
+                    onChange={(e) => setFormData({ ...formData, targetCount: parseInt(e.target.value) })}
                     required
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {formData.incomeModel === 'pair_breeding' && 'Number of breeding pairs'}
+                    {formData.incomeModel === 'egg_production' && 'Target eggs to produce per day'}
+                    {formData.incomeModel === 'growing' && 'Number of birds to raise'}
+                    {formData.incomeModel === 'mixed' && 'Target count for the project'}
+                  </p>
                 </div>
 
                 <div>
@@ -366,72 +439,90 @@ export default function ProjectsPage() {
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => (
-            <Card key={project._id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <CardTitle className="text-xl mb-2 line-clamp-1">{project.name}</CardTitle>
-                    <Badge variant={getStatusBadgeVariant(project.status)}>
-                      {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                    </Badge>
-                  </div>
-                </div>
-                <CardDescription className="mt-2">
-                  <span className="font-semibold">Type:</span> {project.type}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Start Date:</span>
-                    <span className="font-medium">
-                      {format(new Date(project.startDate), 'MMM dd, yyyy')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Target Pairs:</span>
-                    <span className="font-medium">{project.targetPairCount}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Current Pairs:</span>
-                    <span className="font-medium">{project.pairCount || 0}</span>
-                  </div>
-                  {project.notes && (
-                    <div className="mt-2 pt-2 border-t">
-                      <p className="text-sm text-gray-600 line-clamp-2">{project.notes}</p>
+          {projects.map((project) => {
+            const incomeInfo = getIncomeModelInfo(project.incomeModel);
+            return (
+              <Card key={project._id} className="hover:shadow-lg transition-shadow flex flex-col">
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <CardTitle className="text-xl mb-2 line-clamp-1">{project.name}</CardTitle>
+                      <div className="flex gap-2 flex-wrap">
+                        <Badge variant={getStatusBadgeVariant(project.status)}>
+                          {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                        </Badge>
+                        <Badge variant="outline" className="gap-1">
+                          <span>{incomeInfo.icon}</span> {incomeInfo.text}
+                        </Badge>
+                      </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                  <CardDescription className="mt-2">
+                    <span className="font-semibold">Type:</span> {project.type}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Start Date:</span>
+                      <span className="font-medium">
+                        {format(new Date(project.startDate), 'MMM dd, yyyy')}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">{getTargetLabel(project.incomeModel)}:</span>
+                      <span className="font-medium">{project.targetCount}</span>
+                    </div>
+                    {project.pairCount !== undefined && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Current Pairs:</span>
+                        <span className="font-medium">{project.pairCount}</span>
+                      </div>
+                    )}
+                    {project.profit !== undefined && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Profit:</span>
+                        <span className={`font-medium ${project.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          ${project.profit.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    {project.notes && (
+                      <div className="mt-2 pt-2 border-t">
+                        <p className="text-sm text-gray-600 line-clamp-2">{project.notes}</p>
+                      </div>
+                    )}
+                  </div>
 
-                <div className="flex gap-2 mt-6">
-                  <Link href={`/projects/${project._id}`} className="flex-1">
-                    <Button variant="outline" size="sm" className="w-full cursor-pointer">
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Details
+                  <div className="flex gap-2 mt-6">
+                    <Link href={`/projects/${project._id}`} className="flex-1">
+                      <Button variant="outline" size="sm" className="w-full cursor-pointer">
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Details
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(project)}
+                      className="cursor-pointer"
+                    >
+                      <Edit className="h-4 w-4" />
                     </Button>
-                  </Link>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEdit(project)}
-                    className="cursor-pointer"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleDelete(project._id)}
-                    disabled={isPending}
-                    className="cursor-pointer"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDelete(project._id)}
+                      disabled={isPending}
+                      className="cursor-pointer"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -462,6 +553,50 @@ export default function ProjectsPage() {
                 <p className="text-2xl font-bold text-gray-600">
                   {projects.filter(p => p.status === 'archived').length}
                 </p>
+              </div>
+            </div>
+            
+            {/* Income Model Breakdown */}
+            <div className="mt-6 pt-4 border-t">
+              <h4 className="font-semibold text-gray-700 mb-3">Income Models</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {(['pair_breeding', 'egg_production', 'growing', 'mixed'] as IncomeModel[]).map(model => {
+                  const count = projects.filter(p => p.incomeModel === model).length;
+                  if (count === 0) return null;
+                  const info = getIncomeModelInfo(model);
+                  return (
+                    <div key={model} className="text-center p-2 bg-white/50 rounded-lg">
+                      <p className="text-lg">{info.icon}</p>
+                      <p className="text-xs text-gray-600">{info.text}</p>
+                      <p className="text-lg font-bold">{count}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Financial Summary */}
+            <div className="mt-6 pt-4 border-t">
+              <h4 className="font-semibold text-gray-700 mb-3">Financial Overview</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center p-3 bg-white/50 rounded-lg">
+                  <p className="text-sm text-gray-600">Total Investment</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    ${projects.reduce((sum, p) => sum + (p.totalExpense || 0), 0).toLocaleString()}
+                  </p>
+                </div>
+                <div className="text-center p-3 bg-white/50 rounded-lg">
+                  <p className="text-sm text-gray-600">Total Revenue</p>
+                  <p className="text-xl font-bold text-green-600">
+                    ${projects.reduce((sum, p) => sum + (p.totalIncome || 0), 0).toLocaleString()}
+                  </p>
+                </div>
+                <div className="text-center p-3 bg-white/50 rounded-lg">
+                  <p className="text-sm text-gray-600">Net Profit</p>
+                  <p className={`text-xl font-bold ${projects.reduce((sum, p) => sum + (p.profit || 0), 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    ${projects.reduce((sum, p) => sum + (p.profit || 0), 0).toLocaleString()}
+                  </p>
+                </div>
               </div>
             </div>
           </CardContent>

@@ -12,6 +12,9 @@ import {
   BarChart3,
   Settings,
   LogOut,
+  Warehouse,
+  TrendingUp,
+  Users,
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
@@ -20,6 +23,9 @@ const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/projects', label: 'Projects', icon: FolderTree },
   { href: '/pairs', label: 'Pairs', icon: Bird },
+  { href: '/birds', label: 'Birds', icon: Users },
+  { href: '/inventory', label: 'Inventory', icon: Warehouse },
+  { href: '/income', label: 'Income', icon: TrendingUp },
   { href: '/gallery', label: 'Gallery', icon: Image },
   { href: '/expenses', label: 'Expenses', icon: DollarSign },
   { href: '/reports', label: 'Reports', icon: BarChart3 },
@@ -41,7 +47,7 @@ export function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 px-3 py-4">
+        <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
