@@ -39,6 +39,7 @@ services:
         condition: service_healthy
     networks:
       - internal-net
+      - npm-net  # Added NPM network
     volumes:
       - ./logs:/app/logs
 

@@ -3,7 +3,7 @@
 import { useSession, signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LogOut, User, Settings, Bell, Loader2 } from 'lucide-react';
+import { LogOut, User, Settings, Bell, Menu, X } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useState } from 'react';
@@ -14,8 +14,9 @@ export function Header() {
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Get page title from pathname - Updated with new pages
+  // Get page title from pathname
   const getPageTitle = () => {
     if (!pathname) return 'Dashboard';
     const path = pathname.split('/')[1];
@@ -24,14 +25,33 @@ export function Header() {
       projects: 'Projects',
       pairs: 'Bird Pairs',
       birds: 'Birds Management',
-      inventory: 'Inventory Management',
-      income: 'Income Tracking',
-      gallery: 'Photo Gallery',
+      inventory: 'Inventory',
+      income: 'Income',
       expenses: 'Expenses',
+      gallery: 'Photo Gallery',
       reports: 'Reports',
       settings: 'Settings',
     };
     return path && titles[path] ? titles[path] : 'Dashboard';
+  };
+
+  // Get page icon based on path
+  const getPageIcon = () => {
+    if (!pathname) return '📊';
+    const path = pathname.split('/')[1];
+    const icons: Record<string, string> = {
+      dashboard: '📊',
+      projects: '🏗️',
+      pairs: '🐦',
+      birds: '🐔',
+      inventory: '📦',
+      income: '💰',
+      expenses: '💸',
+      gallery: '🖼️',
+      reports: '📈',
+      settings: '⚙️',
+    };
+    return icons[path] || '📊';
   };
 
   // Get user initials for avatar fallback
@@ -81,17 +101,30 @@ export function Header() {
     <header className="fixed right-0 top-0 z-30 h-16 bg-white border-b border-gray-200 dark:bg-gray-950 dark:border-gray-800" style={{ left: '16rem' }}>
       <div className="flex h-full items-center justify-between px-6">
         {/* Page Title */}
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {getPageTitle()}
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Welcome back, {session?.user?.name || 'User'}
-          </p>
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">{getPageIcon()}</span>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              {getPageTitle()}
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Welcome back, {session?.user?.name || 'User'}
+            </p>
+          </div>
         </div>
 
         {/* Right Side Actions */}
         <div className="flex items-center gap-4">
+          {/* Mobile Menu Button */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="lg:hidden"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+
           {/* Notifications Button */}
           <Button 
             variant="ghost" 
@@ -107,7 +140,7 @@ export function Header() {
             <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
           </Button>
 
-          {/* User Menu Dropdown */}
+          {/* User Menu */}
           <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}

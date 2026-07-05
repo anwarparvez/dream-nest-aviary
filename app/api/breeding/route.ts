@@ -19,9 +19,7 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
     
-    // Cast model to any to avoid TypeScript issues
     const BreedingRecordModel = BreedingRecord as any;
-    
     let query = {};
     if (pairId) {
       query = { pairId };
@@ -42,11 +40,11 @@ export async function GET(request: NextRequest) {
         species: record.pairId.species || '',
       } : null,
       eggDate: record.eggDate?.toISOString(),
-      eggCount: record.eggCount,
+      eggCount: record.eggCount || 0,
       hatchDate: record.hatchDate?.toISOString(),
-      chickCount: record.chickCount,
-      chickStatus: record.chickStatus,
-      notes: record.notes,
+      chickCount: record.chickCount || 0,
+      chickStatus: record.chickStatus || '',
+      notes: record.notes || '',
       createdAt: record.createdAt?.toISOString(),
       updatedAt: record.updatedAt?.toISOString(),
     }));
@@ -72,7 +70,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     
-    // Validate required fields
     if (!body.pairId || !body.eggDate || !body.eggCount) {
       return NextResponse.json(
         { error: 'Missing required fields: pairId, eggDate, eggCount' },
@@ -82,11 +79,7 @@ export async function POST(request: NextRequest) {
     
     await connectDB();
     
-    // Cast models to any
     const PairModel = Pair as any;
-    const BreedingRecordModel = BreedingRecord as any;
-    
-    // Check if pair exists
     const pair = await PairModel.findById(body.pairId);
     if (!pair) {
       return NextResponse.json(
@@ -94,6 +87,8 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
+    
+    const BreedingRecordModel = BreedingRecord as any;
     
     const record = await BreedingRecordModel.create({
       pairId: body.pairId,

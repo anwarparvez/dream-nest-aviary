@@ -20,9 +20,7 @@ export async function GET(
     const { id } = await params;
     await connectDB();
     
-    // Cast model to any to avoid TypeScript issues
     const BreedingRecordModel = BreedingRecord as any;
-    
     const record = await BreedingRecordModel.findById(id)
       .populate('pairId', 'pairNumber maleName femaleName species breed')
       .lean();
@@ -32,18 +30,23 @@ export async function GET(
     }
     
     return NextResponse.json({
-      ...record,
-      _id: record._id?.toString(),
+      _id: record._id?.toString() || '',
       pairId: record.pairId ? {
-        _id: record.pairId._id?.toString(),
-        pairNumber: record.pairId.pairNumber,
-        maleName: record.pairId.maleName,
-        femaleName: record.pairId.femaleName,
-        species: record.pairId.species,
-        breed: record.pairId.breed,
+        _id: record.pairId._id?.toString() || '',
+        pairNumber: record.pairId.pairNumber || '',
+        maleName: record.pairId.maleName || '',
+        femaleName: record.pairId.femaleName || '',
+        species: record.pairId.species || '',
+        breed: record.pairId.breed || '',
       } : null,
       eggDate: record.eggDate?.toISOString(),
+      eggCount: record.eggCount || 0,
       hatchDate: record.hatchDate?.toISOString(),
+      chickCount: record.chickCount || 0,
+      chickStatus: record.chickStatus || '',
+      notes: record.notes || '',
+      createdAt: record.createdAt?.toISOString(),
+      updatedAt: record.updatedAt?.toISOString(),
     });
   } catch (error) {
     console.error('Error fetching breeding record:', error);
@@ -74,15 +77,15 @@ export async function PUT(
     const BreedingRecordModel = BreedingRecord as any;
     
     const updateData: any = {
-      eggCount: body.eggCount,
-      chickCount: body.chickCount || 0,
-      chickStatus: body.chickStatus || '',
-      notes: body.notes || '',
       updatedAt: new Date(),
     };
     
-    if (body.eggDate) updateData.eggDate = new Date(body.eggDate);
-    if (body.hatchDate) updateData.hatchDate = new Date(body.hatchDate);
+    if (body.eggDate !== undefined) updateData.eggDate = new Date(body.eggDate);
+    if (body.eggCount !== undefined) updateData.eggCount = body.eggCount;
+    if (body.hatchDate !== undefined) updateData.hatchDate = body.hatchDate ? new Date(body.hatchDate) : null;
+    if (body.chickCount !== undefined) updateData.chickCount = body.chickCount;
+    if (body.chickStatus !== undefined) updateData.chickStatus = body.chickStatus;
+    if (body.notes !== undefined) updateData.notes = body.notes;
     
     const record = await BreedingRecordModel.findByIdAndUpdate(
       id,
@@ -97,14 +100,22 @@ export async function PUT(
     return NextResponse.json({
       success: true,
       data: {
-        ...record.toObject(),
         _id: record._id.toString(),
+        pairId: record.pairId.toString(),
+        eggDate: record.eggDate.toISOString(),
+        eggCount: record.eggCount,
+        hatchDate: record.hatchDate?.toISOString(),
+        chickCount: record.chickCount,
+        chickStatus: record.chickStatus,
+        notes: record.notes,
+        createdAt: record.createdAt.toISOString(),
+        updatedAt: record.updatedAt.toISOString(),
       }
     });
   } catch (error) {
     console.error('Error updating breeding record:', error);
     return NextResponse.json(
-      { error: 'Failed to update breeding record' },
+      { error: 'Failed to update breeding record: ' + (error as Error).message },
       { status: 500 }
     );
   }
@@ -126,8 +137,6 @@ export async function DELETE(
     await connectDB();
     
     const BreedingRecordModel = BreedingRecord as any;
-    const PairModel = Pair as any;
-    
     const record = await BreedingRecordModel.findByIdAndDelete(id);
     
     if (!record) {
@@ -137,6 +146,7 @@ export async function DELETE(
     // Check if pair has any remaining breeding records
     const remainingRecords = await BreedingRecordModel.countDocuments({ pairId: record.pairId });
     if (remainingRecords === 0) {
+      const PairModel = Pair as any;
       await PairModel.findByIdAndUpdate(record.pairId, { 
         status: 'active',
         updatedAt: new Date()

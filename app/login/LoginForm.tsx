@@ -2,7 +2,7 @@
 
 import { signIn } from 'next-auth/react';
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,9 +12,6 @@ import { toast } from 'sonner';
 
 export default function LoginForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams?.get('callbackUrl') || '/dashboard';
-  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -36,8 +33,9 @@ export default function LoginForm() {
         email,
         password,
         redirect: false,
-        callbackUrl,
       });
+
+      console.log('Sign in result:', result);
 
       if (result?.error) {
         setError('Invalid email or password');
@@ -46,21 +44,14 @@ export default function LoginForm() {
         });
         setLoading(false);
       } else if (result?.ok) {
-        toast.success('Login successful!', {
-          description: 'Redirecting to dashboard...',
-        });
-        router.push(callbackUrl);
-        router.refresh();
-      } else {
-        setError('An error occurred. Please try again.');
-        setLoading(false);
+        toast.success('Login successful!');
+        // Force a hard navigation to break any redirect loops
+        window.location.href = '/dashboard';
       }
     } catch (err) {
       console.error('Login error:', err);
       setError('An unexpected error occurred');
-      toast.error('Login failed', {
-        description: 'Please try again later.',
-      });
+      toast.error('Login failed');
       setLoading(false);
     }
   };

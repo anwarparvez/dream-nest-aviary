@@ -13,6 +13,9 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
 import {
   FolderTree,
@@ -22,6 +25,8 @@ import {
   TrendingDown,
   Camera,
   Loader2,
+  Egg,
+  TrendingUp as GrowthIcon,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -30,14 +35,25 @@ interface DashboardStats {
   totalProjects: number;
   totalPairs: number;
   totalPigeons: number;
-  totalChickens: number;
+  totalChickens: {
+    growing: number;
+    eggProduction: number;
+    totalEggsLast30Days: number;
+    eggRevenue: number;
+  };
   monthlyExpense: number;
   totalIncome: number;
   profitLoss: number;
   recentUploads: any[];
-  monthlyExpenseData: any[];
-  monthlyIncomeData: any[];
-  breedingSuccessData: any[];
+  monthlyExpenseData: Array<{ month: number; amount: number }>;
+  monthlyIncomeData: Array<{ month: number; amount: number }>;
+  breedingSuccessData: Array<{ pair: string; hatchRate: number; survivalRate: number }>;
+  incomeBySource?: Array<{ source: string; amount: number }>;
+  projectBreakdown?: {
+    pigeon: number;
+    chickenEgg: number;
+    chickenGrowing: number;
+  };
 }
 
 export default function DashboardPage() {
@@ -106,6 +122,7 @@ export default function DashboardPage() {
     );
   }
 
+  // Stats cards
   const statCards = [
     {
       title: 'Total Projects',
@@ -114,22 +131,32 @@ export default function DashboardPage() {
       color: 'bg-blue-500',
     },
     {
-      title: 'Total Bird Pairs',
-      value: stats?.totalPairs || 0,
-      icon: Bird,
-      color: 'bg-green-500',
-    },
-    {
-      title: 'Total Pigeons',
+      title: 'Pigeon Pairs',
       value: stats?.totalPigeons || 0,
       icon: Bird,
       color: 'bg-purple-500',
+      subtitle: 'Breeding pairs',
     },
     {
-      title: 'Total Chickens',
-      value: stats?.totalChickens || 0,
-      icon: Bird,
+      title: 'Growing Chickens',
+      value: stats?.totalChickens?.growing || 0,
+      icon: GrowthIcon,
+      color: 'bg-green-500',
+      subtitle: 'Individual birds',
+    },
+    {
+      title: 'Egg Production',
+      value: stats?.totalChickens?.eggProduction || 0,
+      icon: Egg,
       color: 'bg-yellow-500',
+      subtitle: 'Active projects',
+    },
+    {
+      title: 'Eggs Sold (30d)',
+      value: stats?.totalChickens?.totalEggsLast30Days?.toLocaleString() || 0,
+      icon: Egg,
+      color: 'bg-orange-500',
+      subtitle: `${stats?.totalChickens?.eggRevenue ? `$${stats.totalChickens.eggRevenue.toLocaleString()}` : '$0'} revenue`,
     },
     {
       title: 'Monthly Expense',
@@ -149,13 +176,14 @@ export default function DashboardPage() {
       icon: stats?.profitLoss && stats.profitLoss > 0 ? TrendingUp : TrendingDown,
       color: stats?.profitLoss && stats.profitLoss > 0 ? 'bg-emerald-500' : 'bg-red-500',
     },
-    {
-      title: 'Recent Uploads',
-      value: stats?.recentUploads?.length || 0,
-      icon: Camera,
-      color: 'bg-pink-500',
-    },
   ];
+
+  const monthlyExpenseData = stats?.monthlyExpenseData || [];
+  const monthlyIncomeData = stats?.monthlyIncomeData || [];
+  const breedingSuccessData = stats?.breedingSuccessData || [];
+  const incomeBySource = stats?.incomeBySource || [];
+
+  const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec489a'];
 
   return (
     <div className="space-y-6">
@@ -165,6 +193,39 @@ export default function DashboardPage() {
           Welcome to Dream Nest Aviary Management System
         </p>
       </div>
+
+      {/* Project Type Breakdown */}
+      {stats?.projectBreakdown && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <Bird className="h-8 w-8 text-purple-500 mx-auto mb-2" />
+                <p className="text-2xl font-bold">{stats.projectBreakdown.pigeon}</p>
+                <p className="text-xs text-gray-500">Pigeon Projects</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <Egg className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
+                <p className="text-2xl font-bold">{stats.projectBreakdown.chickenEgg}</p>
+                <p className="text-xs text-gray-500">Egg Production Projects</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <GrowthIcon className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                <p className="text-2xl font-bold">{stats.projectBreakdown.chickenGrowing}</p>
+                <p className="text-xs text-gray-500">Growing Projects</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -180,6 +241,9 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stat.value}</div>
+                {stat.subtitle && (
+                  <p className="text-xs text-gray-500 mt-1">{stat.subtitle}</p>
+                )}
               </CardContent>
             </Card>
           );
@@ -188,60 +252,108 @@ export default function DashboardPage() {
 
       {/* Charts */}
       <div className="grid gap-4 md:grid-cols-2">
+        {/* Monthly Expenses Chart */}
         <Card>
           <CardHeader>
             <CardTitle>Monthly Expenses</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={stats?.monthlyExpenseData || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="amount" stroke="#ef4444" name="Expenses" />
-              </LineChart>
-            </ResponsiveContainer>
+            {monthlyExpenseData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={monthlyExpenseData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => `$${value}`} />
+                  <Legend />
+                  <Line type="monotone" dataKey="amount" stroke="#ef4444" name="Expenses" />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                No expense data available
+              </div>
+            )}
           </CardContent>
         </Card>
 
+        {/* Monthly Income Chart */}
         <Card>
           <CardHeader>
             <CardTitle>Monthly Income</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={stats?.monthlyIncomeData || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="amount" stroke="#10b981" name="Income" />
-              </LineChart>
-            </ResponsiveContainer>
+            {monthlyIncomeData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={monthlyIncomeData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => `$${value}`} />
+                  <Legend />
+                  <Line type="monotone" dataKey="amount" stroke="#10b981" name="Income" />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                No income data available
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Breeding Success Rate</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={stats?.breedingSuccessData || []}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="pair" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="hatchRate" fill="#10b981" name="Hatch Rate %" />
-                <Bar dataKey="survivalRate" fill="#3b82f6" name="Survival Rate %" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {/* Income by Source Pie Chart */}
+        {incomeBySource.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Income by Source</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={incomeBySource}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="amount"
+                    nameKey="source"
+                  >
+                    {incomeBySource.map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => `$${value}`} />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Breeding Success Chart - Only relevant for pigeon projects */}
+        {breedingSuccessData.length > 0 && (
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Pigeon Breeding Success Rate</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={breedingSuccessData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="pair" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => `${value}%`} />
+                  <Legend />
+                  <Bar dataKey="hatchRate" fill="#10b981" name="Hatch Rate %" />
+                  <Bar dataKey="survivalRate" fill="#3b82f6" name="Survival Rate %" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Recent Uploads */}
@@ -258,9 +370,14 @@ export default function DashboardPage() {
                     src={upload.imageUrl}
                     alt={upload.title}
                     className="rounded-lg w-full h-48 object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://placehold.co/400x400?text=No+Image';
+                    }}
                   />
                   <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                    <p className="text-white text-sm font-medium">{upload.title}</p>
+                    <p className="text-white text-sm font-medium text-center px-2">
+                      {upload.title}
+                    </p>
                   </div>
                 </div>
               ))}

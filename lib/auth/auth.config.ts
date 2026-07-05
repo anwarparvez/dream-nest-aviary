@@ -15,7 +15,7 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error('Invalid credentials');
+          return null;
         }
 
         try {
@@ -24,7 +24,7 @@ export const authOptions: NextAuthOptions = {
           const user = await UserModel.findOne({ email: credentials.email });
 
           if (!user || !user.password) {
-            throw new Error('Invalid credentials');
+            return null;
           }
 
           const isCorrectPassword = await bcrypt.compare(
@@ -33,7 +33,7 @@ export const authOptions: NextAuthOptions = {
           );
 
           if (!isCorrectPassword) {
-            throw new Error('Invalid credentials');
+            return null;
           }
 
           return {
@@ -44,7 +44,7 @@ export const authOptions: NextAuthOptions = {
           };
         } catch (error) {
           console.error('Auth error:', error);
-          throw new Error('Authentication failed');
+          return null;
         }
       },
     }),
@@ -68,12 +68,9 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
-    async redirect({ url, baseUrl }) {
-      // Allows relative callback URLs
-      if (url.startsWith('/')) return `${baseUrl}${url}`;
-      // Allows callback URLs on the same origin
-      else if (new URL(url).origin === baseUrl) return url;
-      return baseUrl;
+    async redirect({ baseUrl }) {
+      // Always redirect to dashboard after login
+      return `${baseUrl}/dashboard`;
     },
   },
   pages: {
@@ -85,5 +82,5 @@ export const authOptions: NextAuthOptions = {
     maxAge: 30 * 24 * 60 * 60,
   },
   secret: process.env.NEXTAUTH_SECRET,
-  debug: false, // Set to false to avoid verbose logging
+  debug: false,
 };

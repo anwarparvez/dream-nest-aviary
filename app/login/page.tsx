@@ -1,7 +1,7 @@
 'use client';
 
 import { signIn } from 'next-auth/react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,22 +10,12 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function LoginPage() {
+export default function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  // Clear any existing callback URLs on mount
-  useEffect(() => {
-    // Remove callbackUrl from URL without reloading
-    const url = new URL(window.location.href);
-    if (url.searchParams.has('callbackUrl')) {
-      url.searchParams.delete('callbackUrl');
-      window.history.replaceState({}, '', url.toString());
-    }
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,8 +33,9 @@ export default function LoginPage() {
         email,
         password,
         redirect: false,
-        callbackUrl: '/dashboard', // Explicitly set to dashboard
       });
+
+      console.log('Sign in result:', result);
 
       if (result?.error) {
         setError('Invalid email or password');
@@ -54,8 +45,8 @@ export default function LoginPage() {
         setLoading(false);
       } else if (result?.ok) {
         toast.success('Login successful!');
-        router.push('/dashboard');
-        router.refresh();
+        // Force a hard navigation to break any redirect loops
+        window.location.href = '/dashboard';
       }
     } catch (err) {
       console.error('Login error:', err);
